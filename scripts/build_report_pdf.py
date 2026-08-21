@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from reportlab.lib.enums import TA_CENTER
@@ -10,7 +11,7 @@ from reportlab.platypus import PageBreak, Paragraph, Preformatted, SimpleDocTemp
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "competition_architecture_report.md"
-OUTPUT = ROOT / "Mastercard_AI_Defence_Lab_Architecture_Report.pdf"
+OUTPUT = Path(os.getenv("REPORT_PDF_OUTPUT", ROOT / "Mastercard_AI_Defence_Lab_Architecture_Report.pdf"))
 
 
 def inline_markup(text: str) -> str:
