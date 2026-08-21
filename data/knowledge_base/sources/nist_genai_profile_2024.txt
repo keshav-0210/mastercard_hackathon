@@ -1,0 +1,6 @@
+Source summary: NIST AI 600-1 Generative Artificial Intelligence Profile
+
+NIST's Generative AI Profile extends AI risk-management guidance to risks that are distinctive or amplified in generative AI systems. For this project, it supports testing model reliability, documenting generated-content limitations, monitoring misuse risk, and retaining traceability from evidence to agent output. It also supports separating safe offline stress testing from deployment decisions.
+
+Relevant project use: generative-AI risk controls, provenance, reliability checks, and misuse boundaries.
+Safety boundary: defensive governance summary only; no personal data, credentials, production transactions, live targets, or operational exploit steps.

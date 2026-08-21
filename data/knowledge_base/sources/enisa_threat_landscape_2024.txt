@@ -1,0 +1,6 @@
+Source summary: ENISA Threat Landscape 2024
+
+This public ENISA report describes major cybersecurity threats, threat trends, attack techniques, and mitigation considerations using publicly reported incidents. For this project, it supports a defensive research direction: organize threat hypotheses by attack technique, affected process, observable signals, mitigation, and uncertainty. It should inform broad taxonomy and evaluation questions, not reproduce incidents or provide instructions for attacking systems.
+
+Relevant project use: threat taxonomy, mitigation framing, public evidence grounding.
+Safety boundary: summary only; no personal data, credentials, production transactions, live targets, or operational exploit steps.

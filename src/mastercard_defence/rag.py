@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .contracts import EvidenceReference
@@ -7,9 +8,14 @@ from .contracts import EvidenceReference
 
 class LocalKnowledgeBase:
     def __init__(self, directory: str) -> None:
+        root = Path(directory)
+        manifest_path = root / "manifest.json"
+        metadata = {item["source_id"]: item for item in json.loads(manifest_path.read_text(encoding="utf-8"))} if manifest_path.exists() else {}
         self.documents = []
-        for path in sorted(Path(directory).glob("*.txt")):
-            self.documents.append((path.stem, path.name, path.read_text(encoding="utf-8")))
+        for path in sorted(root.glob("*.txt")) + sorted((root / "sources").glob("*.txt")):
+            source_id = path.stem
+            item = metadata.get(source_id, {})
+            self.documents.append((item.get("source_id", source_id), item.get("title", path.name), path.read_text(encoding="utf-8")))
 
     def retrieve(self, query: str, top_k: int = 4) -> list[EvidenceReference]:
         terms = {term.lower() for term in query.split() if len(term) > 2}

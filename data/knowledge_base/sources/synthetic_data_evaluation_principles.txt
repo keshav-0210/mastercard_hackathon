@@ -1,0 +1,6 @@
+Source summary: Synthetic-data evaluation principles for this project
+
+A synthetic transaction set should be evaluated against a permitted reference set for marginal distributions, feature dependencies, conditional relationships, behavioural constraints, downstream utility, diversity, novelty, and privacy or memorization risk. These are internal engineering criteria for this prototype, not official Mastercard scoring formulas. Generated rows must retain provenance, attack family, round, and ground-truth labels.
+
+Relevant project use: fidelity evaluation design and experiment auditability.
+Safety boundary: synthetic-only methodology; no personal data, production records, live targets, or operational exploit steps.

@@ -1,0 +1,46 @@
+[
+  {
+    "source_id": "enisa_threat_landscape_2024",
+    "title": "ENISA Threat Landscape 2024",
+    "publisher": "European Union Agency for Cybersecurity",
+    "url": "https://www.enisa.europa.eu/publications/enisa-threat-landscape-2024",
+    "publication_date": "2024-09-19",
+    "retrieved_date": "2026-08-22",
+    "license_or_usage_basis": "Public agency publication; use as a cited research summary and verify terms before redistribution.",
+    "review_status": "approved-summary-only",
+    "topics": ["cyber threats", "mitigation", "threat taxonomy"]
+  },
+  {
+    "source_id": "nist_ai_rmf_2023",
+    "title": "AI Risk Management Framework 1.0",
+    "publisher": "National Institute of Standards and Technology",
+    "url": "https://www.nist.gov/itl/ai-risk-management-framework",
+    "publication_date": "2023-01-26",
+    "retrieved_date": "2026-08-22",
+    "license_or_usage_basis": "U.S. government public guidance; use as a cited research summary.",
+    "review_status": "approved-summary-only",
+    "topics": ["AI risk", "trustworthiness", "evaluation", "governance"]
+  },
+  {
+    "source_id": "nist_genai_profile_2024",
+    "title": "Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile",
+    "publisher": "National Institute of Standards and Technology",
+    "url": "https://doi.org/10.6028/NIST.AI.600-1",
+    "publication_date": "2024-07-26",
+    "retrieved_date": "2026-08-22",
+    "license_or_usage_basis": "U.S. government public guidance; use as a cited research summary.",
+    "review_status": "approved-summary-only",
+    "topics": ["generative AI", "AI risk", "provenance", "misuse"]
+  },
+  {
+    "source_id": "synthetic_data_evaluation_principles",
+    "title": "Synthetic-data evaluation principles for this project",
+    "publisher": "Project-authored methodology note",
+    "url": "",
+    "publication_date": "2026-08-22",
+    "retrieved_date": "2026-08-22",
+    "license_or_usage_basis": "Original project methodology; not an official competition formula.",
+    "review_status": "approved-internal",
+    "topics": ["synthetic data", "fidelity", "diversity", "novelty", "privacy"]
+  }
+]

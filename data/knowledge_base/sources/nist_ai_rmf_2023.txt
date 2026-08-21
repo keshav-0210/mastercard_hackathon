@@ -1,0 +1,6 @@
+Source summary: NIST AI Risk Management Framework 1.0
+
+NIST describes a voluntary framework for managing risks to people, organizations, and society associated with AI systems. It emphasizes trustworthy and responsible design, development, use, and evaluation. For this project, it supports documenting provenance, limitations, human oversight, measurable evaluation, and risk controls around a generative model used for offline security research.
+
+Relevant project use: responsible AI, governance, evaluation, auditability, and limitation reporting.
+Safety boundary: defensive governance summary only; no personal data, credentials, production transactions, live targets, or operational exploit steps.
