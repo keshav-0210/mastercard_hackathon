@@ -64,6 +64,11 @@ class QwenAgents:
             """You are Agent 2, the Attack Specification Strategist. Convert only the supplied Agent 1 hypothesis into a structured synthetic simulation recipe. Do not use detector feedback. Return only JSON with keys: attack_id, attack_family, scenario, target_context, temporal_pattern, amount_pattern, device_pattern, beneficiary_pattern, feature_constraints, realism_constraints, evasion_objective, evidence.""",
             hypothesis.model_dump_json(),
         )
+        constraints = payload.get("realism_constraints", [])
+        payload["realism_constraints"] = [
+            f"{key}: {value}" for key, value in constraints.items()
+        ] if isinstance(constraints, dict) else constraints
+        payload["evidence"] = [item.model_dump() for item in hypothesis.evidence]
         return AttackSpecification.model_validate(payload)
 
     def analyze(self, round_id: int, detection: dict, fidelity: dict) -> WeaknessReport:
