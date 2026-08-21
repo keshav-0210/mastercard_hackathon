@@ -71,4 +71,15 @@ class QwenAgents:
             """You are Agent 3, the Security Analyst. Analyze detector and fidelity evidence from an offline synthetic experiment. Return only JSON with keys: round_id, observed_weaknesses, supporting_evidence, priority, recommended_next_attack_direction, confidence. Your report will be stored in Attack Memory and consumed by Agent 1 in the next round.""",
             json.dumps({"round_id": round_id, "detection": detection, "fidelity": fidelity}, ensure_ascii=True),
         )
+        payload["round_id"] = round_id
+        weaknesses = payload.get("observed_weaknesses", [])
+        payload["observed_weaknesses"] = [weaknesses] if isinstance(weaknesses, str) else weaknesses
+        payload["supporting_evidence"] = [
+            f"Detection metrics: {json.dumps(detection, ensure_ascii=True)}",
+            f"Fidelity metrics: {json.dumps(fidelity, ensure_ascii=True)}",
+        ]
+        payload["priority"] = str(payload.get("priority", "medium")).lower()
+        if payload["priority"] not in {"low", "medium", "high"}:
+            payload["priority"] = "medium"
+        payload["confidence"] = min(1.0, max(0.0, float(payload.get("confidence", 0.5))))
         return WeaknessReport.model_validate(payload)
