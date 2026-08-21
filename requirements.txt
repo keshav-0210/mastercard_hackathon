@@ -1,0 +1,8 @@
+numpy>=1.26
+pandas>=2.1
+pydantic>=2.7
+scikit-learn>=1.4
+PyYAML>=6.0
+streamlit>=1.36
+sentence-transformers>=3.0
+llama-cpp-python>=0.2.90

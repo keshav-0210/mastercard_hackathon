@@ -1,0 +1,20 @@
+# Local model weights: keep these in the private Kaggle Dataset, never GitHub.
+models/*.gguf
+
+# Generated runtime state and experiment outputs.
+artifacts/
+
+# Python and local environments.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Notebook temporary/runtime files.
+.ipynb_checkpoints/
+
+# OS/editor files.
+.DS_Store
+Thumbs.db
+.vscode/

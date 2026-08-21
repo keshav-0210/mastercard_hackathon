@@ -1,0 +1,1 @@
+Only public, authorized, or synthetic material may be placed in this directory. Iteration 1 uses the synthetic seed document. Public research documents may be added from iteration 2 after source and licensing review.

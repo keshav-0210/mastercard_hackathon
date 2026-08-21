@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mastercard-ai-defence-lab"
+version = "0.1.0"
+description = "First-cut closed-loop red-team/blue-team payment security prototype"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "pydantic>=2.7",
+  "scikit-learn>=1.4",
+  "streamlit>=1.36",
+  "sentence-transformers>=3.0",
+  "llama-cpp-python>=0.2.90",
+]
+
+[project.optional-dependencies]
+kaggle = [
+  "torch>=2.2",
+  "xgboost>=2.0",
+  "lightgbm>=4.3",
+]
+
+tests = [
+  "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

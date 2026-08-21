@@ -1,0 +1,3 @@
+Public seed knowledge for the first local demonstration.
+
+Payment fraud can combine social engineering, account takeover, trusted-device abuse, beneficiary manipulation, and low-and-slow transaction patterns. Defenses should compare amount, time, device, beneficiary, channel, and short-window velocity signals. This seed is a synthetic planning aid and is not a production fraud report.

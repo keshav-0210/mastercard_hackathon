@@ -1,0 +1,21 @@
+run_mode: LOCAL
+seed: 20260821
+
+model:
+  path: models/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf
+  repo: Qwen/Qwen2.5-7B-Instruct-GGUF
+  filename: qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf
+  shard_count: 2
+  context_size: 8192
+  gpu_layers: 0
+
+paths:
+  knowledge_base: data/knowledge_base
+  artifacts: artifacts
+  memory_db: artifacts/attack_memory.sqlite
+
+pipeline:
+  rounds: 2
+  synthetic_transactions: 400
+  max_generated_attacks: 80
+  rag_top_k: 4
