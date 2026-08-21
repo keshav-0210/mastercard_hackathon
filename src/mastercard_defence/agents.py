@@ -5,18 +5,31 @@ import json
 from .contracts import AttackHypothesis, AttackSpecification, EvidenceReference, WeaknessReport
 from .llm import SharedLocalLLM
 
+ATTACK_FAMILIES = (
+    "account_takeover",
+    "trusted_device",
+    "beneficiary_manipulation",
+    "low_and_slow",
+    "social_engineering",
+    "merchant_abuse",
+    "cross_channel_anomaly",
+)
+
 
 class HeuristicAgents:
     """Deterministic fallback used for local smoke tests before model setup."""
 
-    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str], research_query: str = "") -> AttackHypothesis:
+    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str], research_query: str = "", allowed_families: tuple[str, ...] = ATTACK_FAMILIES) -> AttackHypothesis:
         directions = [
             ("trusted-device account takeover", "trusted_device"),
             ("low-and-slow beneficiary manipulation", "low_and_slow"),
             ("social-engineering account recovery abuse", "social_engineering"),
+            ("merchant abuse and unusual refund behaviour", "merchant_abuse"),
+            ("cross-channel transaction anomaly", "cross_channel_anomaly"),
+            ("beneficiary manipulation", "beneficiary_manipulation"),
+            ("account takeover", "account_takeover"),
         ]
-        prior = " ".join(memory).lower()
-        direction, family = next((item for item in directions if item[1] not in prior), directions[(round_id - 1) % len(directions)])
+        direction, family = next((item for item in directions if item[1] in allowed_families), directions[(round_id - 1) % len(directions)])
         return AttackHypothesis(
             attack_id=f"round-{round_id}-{family}", attack_family=family,
             scenario=f"Synthetic {direction} payment pattern",
@@ -55,13 +68,15 @@ class QwenAgents:
     def __init__(self, config: dict, llm: SharedLocalLLM | None = None) -> None:
         self.llm = llm or SharedLocalLLM(config)
 
-    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str], research_query: str = "") -> AttackHypothesis:
+    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str], research_query: str = "", allowed_families: tuple[str, ...] = ATTACK_FAMILIES) -> AttackHypothesis:
         payload = self.llm.complete_json(
-            """You are Agent 1, the Attack Researcher. Stay within an offline synthetic payment-security stress test. Use the public evidence and Attack Memory as research inputs. Follow the current research query, investigate a new attack direction, and avoid repeating prior attack families unless you explain why a distinct mechanism is being tested. Return only JSON with keys: attack_id, attack_family, scenario, target_context, behavioural_mechanism, novelty_rationale, research_direction, evidence, memory_context. Do not create raw transactions, target live systems, or provide operational attack instructions.""",
-            json.dumps({"round_id": round_id, "research_query": research_query, "public_evidence": [{"source_id": item.source_id, "title": item.title, "excerpt": item.excerpt[:300]} for item in evidence[:3]], "attack_memory": [item[:500] for item in memory[-4:]]}, ensure_ascii=True),
+            """You are Agent 1, the Attack Researcher. Stay within an offline synthetic payment-security stress test. Use the public evidence and Attack Memory as research inputs. Choose exactly one attack_family from allowed_families, prefer an unused family, and investigate a new defensive research direction. Do not create raw transactions, target live systems, or provide operational attack instructions. Return only JSON with keys: attack_id, attack_family, scenario, target_context, behavioural_mechanism, novelty_rationale, research_direction, evidence, memory_context.""",
+            json.dumps({"round_id": round_id, "research_query": research_query, "allowed_families": allowed_families, "public_evidence": [{"source_id": item.source_id, "title": item.title, "excerpt": item.excerpt[:300]} for item in evidence[:3]], "attack_memory": [item[:500] for item in memory[-4:]]}, ensure_ascii=True),
         )
         payload["evidence"] = [item.model_dump() for item in evidence]
         payload["memory_context"] = memory[-4:]
+        if payload.get("attack_family") not in allowed_families:
+            payload["attack_family"] = allowed_families[0]
         return AttackHypothesis.model_validate(payload)
 
     def specify(self, hypothesis: AttackHypothesis) -> AttackSpecification:

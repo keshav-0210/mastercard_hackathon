@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .agents import HeuristicAgents, QwenAgents
+from .agents import ATTACK_FAMILIES, HeuristicAgents, QwenAgents
 from .contracts import MemoryRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
@@ -41,7 +41,9 @@ class ClosedLoop:
             if prior_direction:
                 query += " " + prior_direction[:500]
             evidence = self.knowledge.retrieve(query, self.config["pipeline"]["rag_top_k"])
-            hypothesis = self.agents.research(round_id, evidence, memory_context, query)
+            prior_families = tuple(family for family in ATTACK_FAMILIES if family in " ".join(memory_context).lower())
+            allowed_families = tuple(family for family in ATTACK_FAMILIES if family not in prior_families) or ATTACK_FAMILIES
+            hypothesis = self.agents.research(round_id, evidence, memory_context, query, allowed_families)
             novelty = evaluate_novelty(hypothesis, memory_context)
             specification = self.agents.specify(hypothesis)
             attack_count = self.config["pipeline"]["max_generated_attacks"]

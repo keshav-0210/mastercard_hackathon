@@ -148,7 +148,7 @@ The Kaggle-connected VS Code notebook verified:
 - Detection F1 in the validated two-round run: `0.988` and `0.988` (historical baseline before the split hardening).
 - Feedback path: `Agent 3 -> Memory -> Agent 1: OK`.
 
-The updated three-round hardened Kaggle run completed with QwenAgents using the reviewed RAG corpus and unseen-attack evaluation. Detection F1 was `0.826`, `0.734`, and `0.812`; fidelity plausibility was `0.4706`, `0.5232`, and `0.4928`. Each round covered three channels and achieved a unique-row ratio of `1.0`, while the generated attack batch remained one attack family per round. These values are internal synthetic-experiment evidence, not official Mastercard scores. The latest Qwen Kaggle rerun produced three distinct research families (`Phishing and Credential Harvesting`, `Social Engineering with AI-Generated Content`, and `Phishing with AI-Generated Audio`) with novelty scores `0.9478`, `0.9328`, and `0.9485`. The novelty score is an internal token-level structured-distance heuristic, not an official Mastercard scoring formula.
+The updated three-round hardened Kaggle run completed with QwenAgents using the reviewed RAG corpus and unseen-attack evaluation. Detection F1 was `0.826`, `0.734`, and `0.812`; fidelity plausibility was `0.4706`, `0.5232`, and `0.4928`. Each round covered three channels and achieved a unique-row ratio of `1.0`, while the generated attack batch remained one attack family per round. These values are internal synthetic-experiment evidence, not official Mastercard scores. The latest Qwen Kaggle rerun produced three distinct research families (`Phishing and Credential Harvesting`, `Social Engineering with AI-Generated Content`, and `Phishing with AI-Generated Audio`) with novelty scores `0.9478`, `0.9328`, and `0.9485`. The novelty score is an internal token-level structured-distance heuristic, not an official Mastercard scoring formula. The controller now enforces distinct abstract families across a three-round run; the seven-family taxonomy is `account_takeover`, `trusted_device`, `beneficiary_manipulation`, `low_and_slow`, `social_engineering`, `merchant_abuse`, and `cross_channel_anomaly`.
 
 The historical F1 values are results from the earlier synthetic baseline and should not be presented as official competition scores or real-world deployment performance. The hardened protocol should report new unseen-evaluation results before drawing comparisons.
 
@@ -220,7 +220,7 @@ Add stronger features or models only if baseline evidence justifies it:
 1. Freeze and document the validated Qwen baseline with the hardened three-round protocol.
 2. Run the hardened protocol on Kaggle and save the new unseen-evaluation results.
 3. Upgrade RAG with embedding retrieval over the seven-document reviewed public-summary corpus while retaining the allowlist and source manifest.
-4. Expand the approved taxonomy beyond the current phishing/social-engineering cluster and retain the novelty tracker.
+4. Run the new strict family-diversity policy on Kaggle and compare its unseen-evaluation results with the prior Qwen run.
 5. Compare a stronger conditional generator against the baseline on Kaggle GPU.
 6. Improve the Streamlit walkthrough and package the code repository plus solution document.
 7. Run a final compliance, provenance, privacy, and reproducibility audit before submission.

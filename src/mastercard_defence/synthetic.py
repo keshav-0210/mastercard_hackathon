@@ -42,6 +42,17 @@ def generate_attacks(specification: AttackSpecification, size: int, round_id: in
         data["velocity_24h"] = rng.poisson(2.0, size)
     if "trusted_device" in family:
         data["device_change"] = rng.binomial(1, 0.04, size)
+    if "merchant_abuse" in family:
+        data["beneficiary_change"] = rng.binomial(1, 0.02, size)
+        data["velocity_24h"] = rng.poisson(7.0, size)
+    if "cross_channel" in family:
+        data["channel"] = rng.choice(CHANNELS, size)
+        data["device_change"] = rng.binomial(1, 0.55, size)
+    if "beneficiary_manipulation" in family:
+        data["beneficiary_change"] = rng.binomial(1, 0.75, size)
+    if "account_takeover" in family:
+        data["device_change"] = rng.binomial(1, 0.65, size)
+        data["velocity_24h"] = rng.poisson(6.0, size)
     data["attack_id"] = specification.attack_id
     data["attack_family"] = family
     data["generation_round"] = round_id
