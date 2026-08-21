@@ -35,9 +35,13 @@ class ClosedLoop:
         train_reference = train_reference.reset_index(drop=True)
         results = []
         for round_id in range(1, rounds + 1):
-            query = "payment fraud attack detector weakness device beneficiary velocity"
+            memory_context = self.memory.recent_context()
+            prior_direction = " ".join(memory_context[-4:])
+            query = "payment fraud attack detector weakness new direction public evidence"
+            if prior_direction:
+                query += " " + prior_direction[:500]
             evidence = self.knowledge.retrieve(query, self.config["pipeline"]["rag_top_k"])
-            hypothesis = self.agents.research(round_id, evidence, self.memory.recent_context())
+            hypothesis = self.agents.research(round_id, evidence, memory_context, query)
             specification = self.agents.specify(hypothesis)
             attack_count = self.config["pipeline"]["max_generated_attacks"]
             train_attacks = generate_attacks(specification, attack_count, round_id, seed + round_id)
@@ -58,7 +62,7 @@ class ClosedLoop:
             self.memory.add(MemoryRecord(round_id=round_id, record_type="specification", content=specification.model_dump()))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="evaluation", content={"detection": evaluation, "fidelity": fidelity, "diversity": diversity}))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="weakness", content=weakness.model_dump()))
-            results.append({"round": round_id, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "detection": evaluation, "weakness": weakness})
+            results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "detection": evaluation, "weakness": weakness})
         return results
 
     def close(self) -> None:

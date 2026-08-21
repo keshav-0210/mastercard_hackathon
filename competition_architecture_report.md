@@ -8,7 +8,7 @@
 
 A first-cut closed-loop red-team/blue-team prototype has been implemented and executed on a Kaggle GPU from VS Code. The system uses one local Qwen2.5-7B-Instruct GGUF Q4_K_M model across three logical roles: Attack Researcher, Attack Specification Strategist, and Security Analyst. The prototype completed two synthetic-data rounds with the required feedback direction: Agent 3 -> Attack Memory -> Agent 1.
 
-The current result is an engineering baseline, not a final competition claim. The detector and loop are working, and the protocol now separates detector-training attacks from unseen evaluation attacks across three configured rounds. Generator fidelity, attack diversity, novelty, and web-prototype polish still need strengthening before submission.
+The current result is an engineering baseline, not a final competition claim. The detector and loop are working, and the protocol now separates detector-training attacks from unseen evaluation attacks across three configured rounds. Agent 1 also receives a round-specific research query derived from the prior Attack Memory weakness/recommendation. Generator fidelity, attack diversity, novelty, and web-prototype polish still need strengthening before submission.
 
 ## Implemented Architecture
 
@@ -148,7 +148,7 @@ The Kaggle-connected VS Code notebook verified:
 - Detection F1 in the validated two-round run: `0.988` and `0.988` (historical baseline before the split hardening).
 - Feedback path: `Agent 3 -> Memory -> Agent 1: OK`.
 
-The updated three-round hardened Kaggle run completed with QwenAgents using the reviewed RAG corpus and unseen-attack evaluation. Detection F1 was `0.826`, `0.734`, and `0.812`; fidelity plausibility was `0.4706`, `0.5232`, and `0.4928`. Each round covered three channels and achieved a unique-row ratio of `1.0`, while the generated attack batch remained one attack family per round. These values are internal synthetic-experiment evidence, not official Mastercard scores.
+The updated three-round hardened Kaggle run completed with QwenAgents using the reviewed RAG corpus and unseen-attack evaluation. Detection F1 was `0.826`, `0.734`, and `0.812`; fidelity plausibility was `0.4706`, `0.5232`, and `0.4928`. Each round covered three channels and achieved a unique-row ratio of `1.0`, while the generated attack batch remained one attack family per round. These values are internal synthetic-experiment evidence, not official Mastercard scores. A subsequent local adaptive smoke test produced three distinct families across three rounds (`trusted_device`, `low_and_slow`, and `social_engineering`) using the prior-memory steering path; the corresponding Qwen Kaggle rerun should be treated as a new experiment.
 
 The historical F1 values are results from the earlier synthetic baseline and should not be presented as official competition scores or real-world deployment performance. The hardened protocol should report new unseen-evaluation results before drawing comparisons.
 
@@ -219,7 +219,7 @@ Add stronger features or models only if baseline evidence justifies it:
 
 1. Freeze and document the validated Qwen baseline with the hardened three-round protocol.
 2. Run the hardened protocol on Kaggle and save the new unseen-evaluation results.
-3. Upgrade RAG with embedding retrieval over the reviewed public summaries.
+3. Upgrade RAG with embedding retrieval over the reviewed public summaries while retaining the allowlist and source manifest.
 4. Add attack-family diversity and novelty tracking.
 5. Compare a stronger conditional generator against the baseline on Kaggle GPU.
 6. Improve the Streamlit walkthrough and package the code repository plus solution document.

@@ -44,4 +44,4 @@ Running a local Python process cannot directly access `/kaggle/input` or the Tes
 
 `Reviewed public RAG + Attack Memory -> Agent 1 -> Agent 2 -> Generator -> Fidelity + Diversity + Detector -> Agent 3 -> Attack Memory -> Agent 1`
 
-The configured first-cut protocol now runs 3 rounds and evaluates unseen attack rows against a legitimate holdout. Detector-training attacks are separate from evaluation attacks, and the fidelity report includes amount moments, behavioural signal deltas, and channel coverage.
+The configured first-cut protocol now runs 3 rounds and evaluates unseen attack rows against a legitimate holdout. Detector-training attacks are separate from evaluation attacks, and the fidelity report includes amount moments, behavioural signal deltas, and channel coverage. Agent 1 receives a round-specific query built from the previous Attack Memory weakness/recommendation, and the allowlisted public summaries are retrieved again for that query on every round.

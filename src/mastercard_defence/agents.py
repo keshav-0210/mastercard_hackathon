@@ -9,9 +9,14 @@ from .llm import SharedLocalLLM
 class HeuristicAgents:
     """Deterministic fallback used for local smoke tests before model setup."""
 
-    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str]) -> AttackHypothesis:
-        direction = "trusted-device account takeover" if any("device" in item.lower() for item in memory) else "low-and-slow beneficiary manipulation"
-        family = "trusted_device" if "trusted" in direction else "low_and_slow"
+    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str], research_query: str = "") -> AttackHypothesis:
+        directions = [
+            ("trusted-device account takeover", "trusted_device"),
+            ("low-and-slow beneficiary manipulation", "low_and_slow"),
+            ("social-engineering account recovery abuse", "social_engineering"),
+        ]
+        prior = " ".join(memory).lower()
+        direction, family = next((item for item in directions if item[1] not in prior), directions[(round_id - 1) % len(directions)])
         return AttackHypothesis(
             attack_id=f"round-{round_id}-{family}", attack_family=family,
             scenario=f"Synthetic {direction} payment pattern",
@@ -50,10 +55,10 @@ class QwenAgents:
     def __init__(self, config: dict, llm: SharedLocalLLM | None = None) -> None:
         self.llm = llm or SharedLocalLLM(config)
 
-    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str]) -> AttackHypothesis:
+    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str], research_query: str = "") -> AttackHypothesis:
         payload = self.llm.complete_json(
-            """You are Agent 1, the Attack Researcher. Stay within an offline synthetic payment-security stress test. Return only JSON with keys: attack_id, attack_family, scenario, target_context, behavioural_mechanism, novelty_rationale, research_direction, evidence, memory_context. Do not create raw transactions.""",
-            json.dumps({"round_id": round_id, "public_evidence": [{"source_id": item.source_id, "excerpt": item.excerpt[:300]} for item in evidence[:3]], "attack_memory": [item[:500] for item in memory[-4:]]}, ensure_ascii=True),
+            """You are Agent 1, the Attack Researcher. Stay within an offline synthetic payment-security stress test. Use the public evidence and Attack Memory as research inputs. Follow the current research query, investigate a new attack direction, and avoid repeating prior attack families unless you explain why a distinct mechanism is being tested. Return only JSON with keys: attack_id, attack_family, scenario, target_context, behavioural_mechanism, novelty_rationale, research_direction, evidence, memory_context. Do not create raw transactions, target live systems, or provide operational attack instructions.""",
+            json.dumps({"round_id": round_id, "research_query": research_query, "public_evidence": [{"source_id": item.source_id, "title": item.title, "excerpt": item.excerpt[:300]} for item in evidence[:3]], "attack_memory": [item[:500] for item in memory[-4:]]}, ensure_ascii=True),
         )
         payload["evidence"] = [item.model_dump() for item in evidence]
         payload["memory_context"] = memory[-4:]
