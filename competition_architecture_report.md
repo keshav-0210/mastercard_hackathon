@@ -148,6 +148,8 @@ The Kaggle-connected VS Code notebook verified:
 - Detection F1 in the validated two-round run: `0.988` and `0.988` (historical baseline before the split hardening).
 - Feedback path: `Agent 3 -> Memory -> Agent 1: OK`.
 
+The updated three-round hardened Kaggle run completed with QwenAgents using the reviewed RAG corpus and unseen-attack evaluation. Detection F1 was `0.826`, `0.734`, and `0.812`; fidelity plausibility was `0.4706`, `0.5232`, and `0.4928`. Each round covered three channels and achieved a unique-row ratio of `1.0`, while the generated attack batch remained one attack family per round. These values are internal synthetic-experiment evidence, not official Mastercard scores.
+
 The historical F1 values are results from the earlier synthetic baseline and should not be presented as official competition scores or real-world deployment performance. The hardened protocol should report new unseen-evaluation results before drawing comparisons.
 
 ## Rules and Compliance Position
