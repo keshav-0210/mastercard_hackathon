@@ -27,6 +27,14 @@ class SharedLocalLLM:
         return self._engine
 
     def complete_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-        response = self._load()(messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], response_format={"type": "json_object"}, temperature=0.2, max_tokens=1200)
+        response = self._load().create_chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+            max_tokens=1200,
+        )
         content = response["choices"][0]["message"]["content"]
         return json.loads(content)

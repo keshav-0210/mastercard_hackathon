@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+
 from .contracts import AttackHypothesis, AttackSpecification, EvidenceReference, WeaknessReport
+from .llm import SharedLocalLLM
 
 
 class HeuristicAgents:
@@ -39,3 +42,33 @@ class HeuristicAgents:
             recommended_next_attack_direction="Test trusted-device and low-and-slow variants with reduced velocity signals.",
             confidence=0.65,
         )
+
+
+class QwenAgents:
+    """Three logical roles backed by one shared local Qwen model."""
+
+    def __init__(self, config: dict) -> None:
+        self.llm = SharedLocalLLM(config)
+
+    def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str]) -> AttackHypothesis:
+        payload = self.llm.complete_json(
+            """You are Agent 1, the Attack Researcher. Stay within an offline synthetic payment-security stress test. Return only JSON with keys: attack_id, attack_family, scenario, target_context, behavioural_mechanism, novelty_rationale, research_direction, evidence, memory_context. Do not create raw transactions.""",
+            json.dumps({"round_id": round_id, "public_evidence": [item.model_dump() for item in evidence], "attack_memory": memory[-8:]}, ensure_ascii=True),
+        )
+        payload["evidence"] = payload.get("evidence") or [item.model_dump() for item in evidence]
+        payload["memory_context"] = payload.get("memory_context") or memory[-4:]
+        return AttackHypothesis.model_validate(payload)
+
+    def specify(self, hypothesis: AttackHypothesis) -> AttackSpecification:
+        payload = self.llm.complete_json(
+            """You are Agent 2, the Attack Specification Strategist. Convert only the supplied Agent 1 hypothesis into a structured synthetic simulation recipe. Do not use detector feedback. Return only JSON with keys: attack_id, attack_family, scenario, target_context, temporal_pattern, amount_pattern, device_pattern, beneficiary_pattern, feature_constraints, realism_constraints, evasion_objective, evidence.""",
+            hypothesis.model_dump_json(),
+        )
+        return AttackSpecification.model_validate(payload)
+
+    def analyze(self, round_id: int, detection: dict, fidelity: dict) -> WeaknessReport:
+        payload = self.llm.complete_json(
+            """You are Agent 3, the Security Analyst. Analyze detector and fidelity evidence from an offline synthetic experiment. Return only JSON with keys: round_id, observed_weaknesses, supporting_evidence, priority, recommended_next_attack_direction, confidence. Your report will be stored in Attack Memory and consumed by Agent 1 in the next round.""",
+            json.dumps({"round_id": round_id, "detection": detection, "fidelity": fidelity}, ensure_ascii=True),
+        )
+        return WeaknessReport.model_validate(payload)

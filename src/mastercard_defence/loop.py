@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pandas as pd
 
-from .agents import HeuristicAgents
+from .agents import HeuristicAgents, QwenAgents
 from .contracts import MemoryRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
@@ -13,9 +14,14 @@ from .synthetic import evaluate_fidelity, generate_attacks, make_reference_trans
 
 
 class ClosedLoop:
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, agents=None) -> None:
         self.config = config
-        self.agents = HeuristicAgents()
+        if agents is not None:
+            self.agents = agents
+        elif os.getenv("RUN_MODE", "LOCAL").upper() == "KAGGLE_GPU":
+            self.agents = QwenAgents(config)
+        else:
+            self.agents = HeuristicAgents()
         self.knowledge = LocalKnowledgeBase(config["paths"]["knowledge_base"])
         self.memory = AttackMemory(config["paths"]["memory_db"])
 
