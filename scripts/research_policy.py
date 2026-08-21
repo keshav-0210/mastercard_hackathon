@@ -26,6 +26,16 @@ APPROVED_SOURCES = (
         "https://www.enisa.europa.eu/publications/enisa-threat-landscape-2024",
         "High-level public threat taxonomy and mitigation summaries.",
     ),
+    ApprovedResearchSource(
+        "pci_payment_security_overview",
+        "https://www.pcisecuritystandards.org/standards/",
+        "High-level payment lifecycle, secure software, authentication, and data-protection summaries.",
+    ),
+    ApprovedResearchSource(
+        "nist_privacy_framework",
+        "https://www.nist.gov/privacy-framework",
+        "Privacy-risk, minimization, provenance, and leakage-control summaries.",
+    ),
 )
 
 

@@ -42,5 +42,27 @@
     "license_or_usage_basis": "Original project methodology; not an official competition formula.",
     "review_status": "approved-internal",
     "topics": ["synthetic data", "fidelity", "diversity", "novelty", "privacy"]
+  },
+  {
+    "source_id": "pci_payment_security_overview",
+    "title": "PCI Security Standards Council payment-security overview",
+    "publisher": "PCI Security Standards Council",
+    "url": "https://www.pcisecuritystandards.org/standards/",
+    "publication_date": "",
+    "retrieved_date": "2026-08-22",
+    "license_or_usage_basis": "Public standards overview; use as a cited defensive summary and verify terms before redistribution.",
+    "review_status": "approved-summary-only",
+    "topics": ["payment security", "secure software", "3-D Secure", "data protection"]
+  },
+  {
+    "source_id": "nist_privacy_framework",
+    "title": "NIST Privacy Framework",
+    "publisher": "National Institute of Standards and Technology",
+    "url": "https://www.nist.gov/privacy-framework",
+    "publication_date": "",
+    "retrieved_date": "2026-08-22",
+    "license_or_usage_basis": "U.S. government public guidance; use as a cited research summary.",
+    "review_status": "approved-summary-only",
+    "topics": ["privacy risk", "data minimization", "provenance", "synthetic data"]
   }
 ]

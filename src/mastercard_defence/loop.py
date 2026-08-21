@@ -10,7 +10,7 @@ from .contracts import MemoryRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
 from .rag import LocalKnowledgeBase
-from .synthetic import evaluate_diversity, evaluate_fidelity, generate_attacks, make_reference_transactions
+from .synthetic import evaluate_diversity, evaluate_fidelity, evaluate_novelty, generate_attacks, make_reference_transactions
 
 
 class ClosedLoop:
@@ -42,6 +42,7 @@ class ClosedLoop:
                 query += " " + prior_direction[:500]
             evidence = self.knowledge.retrieve(query, self.config["pipeline"]["rag_top_k"])
             hypothesis = self.agents.research(round_id, evidence, memory_context, query)
+            novelty = evaluate_novelty(hypothesis, memory_context)
             specification = self.agents.specify(hypothesis)
             attack_count = self.config["pipeline"]["max_generated_attacks"]
             train_attacks = generate_attacks(specification, attack_count, round_id, seed + round_id)
@@ -60,9 +61,9 @@ class ClosedLoop:
             weakness = self.agents.analyze(round_id, evaluation, fidelity)
             self.memory.add(MemoryRecord(round_id=round_id, record_type="hypothesis", content=hypothesis.model_dump()))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="specification", content=specification.model_dump()))
-            self.memory.add(MemoryRecord(round_id=round_id, record_type="evaluation", content={"detection": evaluation, "fidelity": fidelity, "diversity": diversity}))
+            self.memory.add(MemoryRecord(round_id=round_id, record_type="evaluation", content={"detection": evaluation, "fidelity": fidelity, "diversity": diversity, "novelty": novelty}))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="weakness", content=weakness.model_dump()))
-            results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "detection": evaluation, "weakness": weakness})
+            results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "novelty": novelty, "detection": evaluation, "weakness": weakness})
         return results
 
     def close(self) -> None:

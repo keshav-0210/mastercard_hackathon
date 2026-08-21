@@ -1,0 +1,6 @@
+Source summary: NIST Privacy Framework
+
+NIST describes the Privacy Framework as a voluntary tool for identifying and managing privacy risk while protecting individuals. For this project, it supports data minimization, privacy-risk review, provenance, retention controls, and evaluation of potential memorization or leakage in synthetic-data workflows.
+
+Relevant project use: privacy controls, synthetic-data governance, provenance, and leakage review.
+Safety boundary: defensive privacy summary only; no personal data, credentials, production transactions, live targets, or operational exploit steps.

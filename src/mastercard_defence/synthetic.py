@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .contracts import AttackSpecification, GeneratedTransaction
+from .contracts import AttackHypothesis, AttackSpecification, GeneratedTransaction
 
 CHANNELS = ("web", "mobile", "card_present")
 
@@ -80,4 +80,17 @@ def evaluate_diversity(attacks: pd.DataFrame) -> dict:
         "channel_count": int(attacks["channel"].nunique()),
         "unique_row_ratio": round(float(attacks.drop_duplicates().shape[0] / max(len(attacks), 1)), 4),
         "numeric_feature_mean_count": int(numeric.nunique().mean()),
+    }
+
+
+def evaluate_novelty(hypothesis: AttackHypothesis, prior_memory: list[str]) -> dict:
+    current_terms = set((hypothesis.attack_family + " " + hypothesis.behavioural_mechanism + " " + hypothesis.research_direction).lower().split())
+    prior_terms = [set(item.lower().split()) for item in prior_memory if item.strip()]
+    similarities = [len(current_terms & terms) / max(len(current_terms | terms), 1) for terms in prior_terms]
+    max_similarity = max(similarities, default=0.0)
+    return {
+        "novelty_score": round(1.0 - max_similarity, 4),
+        "max_prior_similarity": round(max_similarity, 4),
+        "comparison_count": len(prior_terms),
+        "novelty_basis": "token-level structured hypothesis distance; internal heuristic",
     }

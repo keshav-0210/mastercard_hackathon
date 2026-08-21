@@ -1,0 +1,6 @@
+Source summary: PCI Security Standards Council payment-security overview
+
+The PCI Security Standards Council publishes standards for organizations involved in payment data, secure software, payment applications, token services, point-of-interaction devices, and 3-D Secure. For this project, the overview supports a defensive research taxonomy organized by payment lifecycle, channel, authentication, data protection, and secure software controls.
+
+Relevant project use: payment lifecycle context, channel taxonomy, secure-by-design and mitigation framing.
+Safety boundary: high-level defensive summary only; no personal data, credentials, production transactions, live targets, or operational exploit steps.
