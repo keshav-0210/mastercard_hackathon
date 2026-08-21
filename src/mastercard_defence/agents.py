@@ -53,7 +53,7 @@ class QwenAgents:
     def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str]) -> AttackHypothesis:
         payload = self.llm.complete_json(
             """You are Agent 1, the Attack Researcher. Stay within an offline synthetic payment-security stress test. Return only JSON with keys: attack_id, attack_family, scenario, target_context, behavioural_mechanism, novelty_rationale, research_direction, evidence, memory_context. Do not create raw transactions.""",
-            json.dumps({"round_id": round_id, "public_evidence": [item.model_dump() for item in evidence], "attack_memory": memory[-8:]}, ensure_ascii=True),
+            json.dumps({"round_id": round_id, "public_evidence": [{"source_id": item.source_id, "excerpt": item.excerpt[:300]} for item in evidence[:3]], "attack_memory": [item[:500] for item in memory[-4:]]}, ensure_ascii=True),
         )
         payload["evidence"] = payload.get("evidence") or [item.model_dump() for item in evidence]
         payload["memory_context"] = payload.get("memory_context") or memory[-4:]
