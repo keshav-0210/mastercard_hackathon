@@ -37,4 +37,21 @@ class SharedLocalLLM:
             max_tokens=1200,
         )
         content = response["choices"][0]["message"]["content"]
-        return json.loads(content)
+        return self._parse_json(content)
+
+    @staticmethod
+    def _parse_json(content: str) -> dict[str, Any]:
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned
+            cleaned = cleaned.rsplit("```", 1)[0].strip()
+        start = cleaned.find("{")
+        if start < 0:
+            raise ValueError("The local model response did not contain a JSON object.")
+        try:
+            parsed, _ = json.JSONDecoder().raw_decode(cleaned[start:])
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"The local model returned invalid JSON: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("The local model response must be a JSON object.")
+        return parsed
