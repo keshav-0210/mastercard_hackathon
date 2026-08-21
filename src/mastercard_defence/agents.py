@@ -47,8 +47,8 @@ class HeuristicAgents:
 class QwenAgents:
     """Three logical roles backed by one shared local Qwen model."""
 
-    def __init__(self, config: dict) -> None:
-        self.llm = SharedLocalLLM(config)
+    def __init__(self, config: dict, llm: SharedLocalLLM | None = None) -> None:
+        self.llm = llm or SharedLocalLLM(config)
 
     def research(self, round_id: int, evidence: list[EvidenceReference], memory: list[str]) -> AttackHypothesis:
         payload = self.llm.complete_json(
