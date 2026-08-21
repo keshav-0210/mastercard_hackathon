@@ -8,7 +8,7 @@
 
 A first-cut closed-loop red-team/blue-team prototype has been implemented and executed on a Kaggle GPU from VS Code. The system uses one local Qwen2.5-7B-Instruct GGUF Q4_K_M model across three logical roles: Attack Researcher, Attack Specification Strategist, and Security Analyst. The prototype completed two synthetic-data rounds with the required feedback direction: Agent 3 -> Attack Memory -> Agent 1.
 
-The current result is an engineering baseline, not a final competition claim. The detector and loop are working; generator fidelity, attack diversity, novelty, public-research grounding, and web-prototype polish still need strengthening before submission.
+The current result is an engineering baseline, not a final competition claim. The detector and loop are working, and the protocol now separates detector-training attacks from unseen evaluation attacks across three configured rounds. Generator fidelity, attack diversity, novelty, and web-prototype polish still need strengthening before submission.
 
 ## Implemented Architecture
 
@@ -76,7 +76,7 @@ Consumes detector metrics and fidelity evidence. Produces a `WeaknessReport` wit
 
 ### RAG layer
 
-The first iteration uses a local, curated text knowledge base with a synthetic seed document. Retrieval is a lightweight term-overlap mechanism that returns evidence excerpts and source identifiers. It is intentionally simple and auditable.
+The first public-research iteration uses a local, curated text knowledge base containing original defensive summaries of reviewed public NIST and ENISA material, plus a project-authored synthetic-data methodology note. Retrieval is a lightweight term-overlap mechanism that returns evidence excerpts and source identifiers. It is intentionally simple and auditable; embedding retrieval remains a later upgrade.
 
 ### Attack Memory
 
@@ -88,7 +88,11 @@ The first cut is a deterministic conditional tabular baseline, not a GAN or diff
 
 ### Fidelity evaluator
 
-The current evaluator reports amount mean delta, amount standard-deviation delta, fraud rate, and a heuristic behavioural-plausibility score. It is separate from detection so realism and detectability remain distinct objectives.
+The evaluator now reports amount mean delta, amount standard-deviation delta, behavioural signal delta, channel coverage, fraud rate, and a heuristic behavioural-plausibility score. It compares unseen generated attacks with a disjoint synthetic reference subset. It is separate from detection so realism and detectability remain distinct objectives.
+
+### Diversity evidence
+
+The evaluator now records attack-family count, channel count, unique-row ratio, and numeric-feature variation for each unseen attack batch. These are initial internal indicators, not official Mastercard scoring formulas.
 
 ### Detector
 
@@ -139,12 +143,12 @@ The Kaggle-connected VS Code notebook verified:
 - Total model size: approximately `4.361 GiB`.
 - CUDA-enabled llama.cpp GPU offload support: `True`.
 - Qwen structured JSON inference: passed.
-- Two-round Qwen-backed loop: passed.
+- Three-round Qwen-backed loop: passed for the prior baseline; the updated three-round protocol is locally validated and ready for Kaggle execution.
 - Agent backend: `QwenAgents`.
-- Detection F1 in the validated two-round run: `0.988` and `0.988`.
+- Detection F1 in the validated two-round run: `0.988` and `0.988` (historical baseline before the split hardening).
 - Feedback path: `Agent 3 -> Memory -> Agent 1: OK`.
 
-The F1 values are results from the current synthetic baseline and should not be presented as official competition scores or real-world deployment performance.
+The historical F1 values are results from the earlier synthetic baseline and should not be presented as official competition scores or real-world deployment performance. The hardened protocol should report new unseen-evaluation results before drawing comparisons.
 
 ## Rules and Compliance Position
 
@@ -211,9 +215,9 @@ Add stronger features or models only if baseline evidence justifies it:
 
 ## Recommended Order
 
-1. Freeze and document the validated two-round Qwen baseline.
-2. Add reproducible split management and complete evaluation reports.
-3. Upgrade RAG with reviewed public sources for iteration 2.
+1. Freeze and document the validated Qwen baseline with the hardened three-round protocol.
+2. Run the hardened protocol on Kaggle and save the new unseen-evaluation results.
+3. Upgrade RAG with embedding retrieval over the reviewed public summaries.
 4. Add attack-family diversity and novelty tracking.
 5. Compare a stronger conditional generator against the baseline on Kaggle GPU.
 6. Improve the Streamlit walkthrough and package the code repository plus solution document.
@@ -222,15 +226,15 @@ Add stronger features or models only if baseline evidence justifies it:
 ## Current Limitations
 
 - The generator is deterministic and simple; it is not yet CTGAN, diffusion, or adversarial training.
-- The RAG corpus is a seed document, not a broad public research collection.
-- The fidelity score is heuristic and not an official Mastercard scoring formula.
+- The RAG corpus is a small reviewed public-summary collection, not a broad research collection.
+- Fidelity and diversity scores are internal heuristics and not official Mastercard scoring formulas.
 - The current synthetic distributions are not evidence of live-payment behaviour.
 - The validated two-round run demonstrates engineering closure, not production readiness.
 - More comprehensive unseen evaluation and attack novelty analysis are required before making strong competition claims.
 
 ## Final Position
 
-The project has a working, competition-aligned first cut: Identify through RAG and memory, Generate through structured specifications and synthetic tabular generation, and Defend through a measurable detector. The most defensible next move is to strengthen evaluation and evidence provenance before increasing model complexity.
+The project has a working, competition-aligned first cut: Identify through reviewed RAG and memory, Generate through structured specifications and synthetic tabular generation, and Defend through a detector evaluated on unseen attacks. The most defensible next move is to run and archive the hardened Kaggle results, then increase public-research breadth and generator realism.
 
 ## Questions and Direct Answers
 
