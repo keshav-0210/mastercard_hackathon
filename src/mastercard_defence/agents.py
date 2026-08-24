@@ -112,7 +112,15 @@ class QwenAgents:
     def recommend_family(self, weakness: WeaknessReport, candidates: tuple[str, ...], memory: list[str]) -> FamilyRecommendation:
         payload = self.llm.complete_json(
             """You are Agent 1, the adaptive attack planner. Stay within an offline synthetic payment-security experiment. Choose exactly one family from candidates based on the detector weakness. Do not target live systems or provide operational attack instructions. Return only JSON with keys: recommended_family, recommendation_type, reason, target_weakness, confidence.""",
-            json.dumps({"weakness": weakness.model_dump(), "candidates": candidates, "recent_memory": memory[-4:]}, ensure_ascii=True),
+            json.dumps({
+                "weakness": {
+                    "observed_weaknesses": weakness.observed_weaknesses,
+                    "recommended_next_attack_direction": weakness.recommended_next_attack_direction,
+                    "priority": weakness.priority,
+                },
+                "candidates": candidates,
+                "recent_memory": [item[:600] for item in memory[-2:]],
+            }, ensure_ascii=True),
         )
         if payload.get("recommended_family") not in candidates:
             payload["recommended_family"] = candidates[0]
