@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 
 from reportlab.lib.enums import TA_CENTER
@@ -12,6 +13,7 @@ from reportlab.platypus import PageBreak, Paragraph, Preformatted, SimpleDocTemp
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "competition_architecture_report.md"
 OUTPUT = Path(os.getenv("REPORT_PDF_OUTPUT", ROOT / "Mastercard_AI_Defence_Lab_Architecture_Report.pdf"))
+RESULTS = Path(os.getenv("REPORT_RESULTS", "")) if os.getenv("REPORT_RESULTS") else None
 
 
 def inline_markup(text: str) -> str:
@@ -32,7 +34,24 @@ def build() -> None:
     in_code = False
     code_lines: list[str] = []
 
-    for raw_line in SOURCE.read_text(encoding="utf-8").splitlines():
+    source_lines = SOURCE.read_text(encoding="utf-8").splitlines()
+    if RESULTS and RESULTS.exists():
+        results = json.loads(RESULTS.read_text(encoding="utf-8"))
+        source_lines.extend([
+            "",
+            "## Validated Baseline Experiment",
+            f"**Run timestamp (UTC):** {results.get('run_timestamp_utc', 'not recorded')}",
+            f"**Protocol:** {results.get('seed_count', 0)} seeds x {results.get('rounds', 0)} rounds with unseen attack evaluation.",
+            "",
+        ])
+        for name, metrics in results.get("summary", {}).items():
+            source_lines.append(f"- {name}: mean {metrics.get('mean', 0.0)}, std {metrics.get('std', 0.0)}, range {metrics.get('min', 0.0)} to {metrics.get('max', 0.0)}")
+        source_lines.extend([
+            "",
+            "The baseline is an internal synthetic experiment. It is not an official Mastercard score or evidence of live-payment performance.",
+        ])
+
+    for raw_line in source_lines:
         line = raw_line.rstrip()
         if line.startswith("```"):
             if in_code:

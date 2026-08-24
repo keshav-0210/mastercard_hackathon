@@ -1,0 +1,30 @@
+{
+  "run_timestamp_utc": "20260824T083222Z",
+  "generator_backend": "conditional_ctgan",
+  "agent_backend": "QwenAgents",
+  "model_path": "/kaggle/input/datasets/keshav0210/qwen25-7b-instruct-q4-km-local/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
+  "seed_count": 3,
+  "rounds": 5,
+  "summary": {
+    "f1": {"mean": 0.8125, "std": 0.0404, "min": 0.7176, "max": 0.8571},
+    "recall": {"mean": 0.71, "std": 0.0519, "min": 0.5875, "max": 0.7875},
+    "precision": {"mean": 0.9522, "std": 0.032, "min": 0.8871, "max": 1.0},
+    "roc_auc": {"mean": 0.9321, "std": 0.0192, "min": 0.8877, "max": 0.954},
+    "novelty_score": {"mean": 0.9558, "std": 0.0197, "min": 0.9306, "max": 1.0},
+    "behavioural_plausibility": {"mean": 0.5587, "std": 0.0871, "min": 0.3982, "max": 0.6839}
+  },
+  "comparison": {
+    "procedural_baseline_artifact": "robustness_results_20260824T065500Z.json",
+    "procedural_baseline_f1_mean": 0.7698,
+    "f1_delta": 0.0427,
+    "recall_delta": 0.0342,
+    "precision_delta": 0.0359,
+    "roc_auc_delta": -0.0097,
+    "behavioural_plausibility_delta": 0.1131
+  },
+  "by_seed": [
+    {"seed": 20260821, "rounds_completed": 5, "f1": [0.8531, 0.7669, 0.8345, 0.8489, 0.8261]},
+    {"seed": 20260822, "rounds_completed": 5, "f1": [0.8571, 0.8333, 0.8085, 0.7536, 0.8345]},
+    {"seed": 20260823, "rounds_completed": 5, "f1": [0.8175, 0.8058, 0.7176, 0.8552, 0.7746]}
+  ]
+}
