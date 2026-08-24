@@ -31,12 +31,18 @@ class ConditionalCTGANGenerator:
             verbose=False,
             cuda=torch.cuda.is_available(),
         )
+        if torch.cuda.is_available():
+            torch.cuda.set_device(0)
+            self.model.set_device(torch.device("cuda:0"))
         self.model.set_random_state(self.seed)
         self.model.fit(training_data[MODEL_COLUMNS], discrete_columns=DISCRETE_COLUMNS)
 
     def generate(self, specification: AttackSpecification, size: int, round_id: int, seed: int) -> pd.DataFrame:
         if self.model is None:
             raise RuntimeError("ConditionalCTGANGenerator must be fitted before generation")
+        if torch.cuda.is_available():
+            torch.cuda.set_device(0)
+            self.model.set_device(torch.device("cuda:0"))
         self.model.set_random_state(seed)
         conditioned_batches = []
         remaining = size
