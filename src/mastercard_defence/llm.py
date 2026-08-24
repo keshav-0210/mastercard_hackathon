@@ -31,18 +31,18 @@ class SharedLocalLLM:
             {"role": "system", "content": system_prompt + " Output one compact JSON object only. Do not use markdown."},
             {"role": "user", "content": user_prompt},
         ]
-        for attempt in range(2):
+        for attempt in range(3):
             response = self._load().create_chat_completion(
                 messages=messages,
                 response_format={"type": "json_object"},
                 temperature=0.0,
-                max_tokens=700,
+                max_tokens=450,
             )
             content = response["choices"][0]["message"]["content"]
             try:
                 return self._parse_json(content)
             except ValueError:
-                if attempt == 1:
+                if attempt == 2:
                     raise
                 messages.append({"role": "user", "content": "Your previous response was invalid JSON. Return a shorter valid JSON object with no commentary."})
         raise RuntimeError("JSON generation failed unexpectedly.")
