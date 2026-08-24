@@ -86,6 +86,14 @@ class WeaknessReport(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class FamilyRecommendation(BaseModel):
+    recommended_family: str
+    recommendation_type: Literal["approved_family", "adaptive_variant", "discovery_candidate"] = "approved_family"
+    reason: str
+    target_weakness: str
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
 class MemoryRecord(BaseModel):
     round_id: int
     record_type: Literal["hypothesis", "specification", "evaluation", "weakness"]

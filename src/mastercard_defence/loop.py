@@ -36,6 +36,8 @@ class ClosedLoop:
         train_reference = train_reference.reset_index(drop=True)
         results = []
         print(f"[seed={seed}] starting {rounds}-round run with family plan: {family_plan}")
+        previous_weakness = None
+        decisions = []
         for round_id in range(1, rounds + 1):
             print(f"[seed={seed}] round {round_id}/{rounds} starting")
             memory_context = self.memory.recent_context()
@@ -45,7 +47,17 @@ class ClosedLoop:
                 query += " " + prior_direction[:500]
             evidence = self.knowledge.retrieve(query, self.config["pipeline"]["rag_top_k"])
             prior_families = tuple(family for family in ATTACK_FAMILIES if family in " ".join(memory_context).lower())
-            chosen_family = family_plan[min(round_id - 1, len(family_plan) - 1)]
+            fallback_family = family_plan[min(round_id - 1, len(family_plan) - 1)]
+            if previous_weakness is None:
+                chosen_family = fallback_family
+                recommendation = {"source": "seeded_plan", "family": chosen_family, "reason": "Initial family selected from the reproducible seeded plan."}
+            else:
+                tested_families = {item["family"] for item in decisions}
+                candidates = tuple(family for family in ATTACK_FAMILIES if family not in tested_families) or ATTACK_FAMILIES
+                family_recommendation = self.agents.recommend_family(previous_weakness, candidates, memory_context)
+                chosen_family = family_recommendation.recommended_family if family_recommendation.recommended_family in candidates else fallback_family
+                recommendation = {"source": "agent_1_adaptive_recommendation", **family_recommendation.model_dump()}
+            decisions.append({"round": round_id, "family": chosen_family, "recommendation": recommendation})
             allowed_families = (chosen_family,) if chosen_family not in prior_families else tuple(family for family in ATTACK_FAMILIES if family not in prior_families) or ATTACK_FAMILIES
             hypothesis = self.agents.research(round_id, evidence, memory_context, query, allowed_families)
             hypothesis.attack_family = chosen_family
@@ -75,11 +87,12 @@ class ClosedLoop:
             evaluation["train_reference_rows"] = len(train_reference)
             evaluation["validation_legitimate_rows"] = len(holdout)
             weakness = self.agents.analyze(round_id, evaluation, fidelity)
+            previous_weakness = weakness
             self.memory.add(MemoryRecord(round_id=round_id, record_type="hypothesis", content=hypothesis.model_dump()))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="specification", content=specification.model_dump()))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="evaluation", content={"detection": evaluation, "fidelity": fidelity, "diversity": diversity, "novelty": novelty}))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="weakness", content=weakness.model_dump()))
-            results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "novelty": novelty, "detection": evaluation, "weakness": weakness})
+            results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "novelty": novelty, "detection": evaluation, "weakness": weakness, "family_decision": recommendation})
             print(f"[seed={seed}] round {round_id}/{rounds} complete | family={chosen_family} | f1={evaluation.get('f1', 0.0):.4f} | novelty={novelty.get('novelty_score', 0.0):.4f}")
         print(f"[seed={seed}] run complete. Total rounds: {len(results)}")
         return results

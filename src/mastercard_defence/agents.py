@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from .contracts import AttackHypothesis, AttackSpecification, EvidenceReference, WeaknessReport
+from .contracts import AttackHypothesis, AttackSpecification, EvidenceReference, FamilyRecommendation, WeaknessReport
 from .llm import SharedLocalLLM
 
 ATTACK_FAMILIES = (
@@ -50,6 +50,12 @@ class HeuristicAgents:
             realism_constraints=["stay within synthetic schema", "retain attack labels and round metadata"],
             evasion_objective="Expose detector reliance on a single behavioural feature.", evidence=hypothesis.evidence,
         )
+
+    def recommend_family(self, weakness: WeaknessReport, candidates: tuple[str, ...], memory: list[str]) -> FamilyRecommendation:
+        weakness_text = " ".join(weakness.observed_weaknesses + [weakness.recommended_next_attack_direction]).lower()
+        keyword_targets = (("device", "trusted_device"), ("velocity", "low_and_slow"), ("beneficiary", "beneficiary_manipulation"), ("channel", "cross_channel_anomaly"), ("merchant", "merchant_abuse"), ("social", "social_engineering"), ("account", "account_takeover"))
+        family = next((target for keyword, target in keyword_targets if keyword in weakness_text and target in candidates), candidates[0])
+        return FamilyRecommendation(recommended_family=family, reason="Selected the approved family most directly related to the latest detector weakness.", target_weakness=weakness_text, confidence=0.75)
 
     def analyze(self, round_id: int, detection: dict, fidelity: dict) -> WeaknessReport:
         weakness = "Detector should be tested against attacks with low velocity." if detection.get("recall", 0) > 0.7 else "Detector recall is weak on the current synthetic attack family."
@@ -102,6 +108,19 @@ class QwenAgents:
                 payload[field] = json.dumps(payload[field], ensure_ascii=True, sort_keys=True)
         payload["evidence"] = [item.model_dump() for item in hypothesis.evidence]
         return AttackSpecification.model_validate(payload)
+
+    def recommend_family(self, weakness: WeaknessReport, candidates: tuple[str, ...], memory: list[str]) -> FamilyRecommendation:
+        payload = self.llm.complete_json(
+            """You are Agent 1, the adaptive attack planner. Stay within an offline synthetic payment-security experiment. Choose exactly one family from candidates based on the detector weakness. Do not target live systems or provide operational attack instructions. Return only JSON with keys: recommended_family, recommendation_type, reason, target_weakness, confidence.""",
+            json.dumps({"weakness": weakness.model_dump(), "candidates": candidates, "recent_memory": memory[-4:]}, ensure_ascii=True),
+        )
+        if payload.get("recommended_family") not in candidates:
+            payload["recommended_family"] = candidates[0]
+        payload["target_weakness"] = " ".join(weakness.observed_weaknesses)
+        payload["confidence"] = min(1.0, max(0.0, float(payload.get("confidence", 0.5))))
+        if payload.get("recommendation_type") not in {"approved_family", "adaptive_variant", "discovery_candidate"}:
+            payload["recommendation_type"] = "approved_family"
+        return FamilyRecommendation.model_validate(payload)
 
     def analyze(self, round_id: int, detection: dict, fidelity: dict) -> WeaknessReport:
         payload = self.llm.complete_json(
