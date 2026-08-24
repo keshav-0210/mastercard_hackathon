@@ -25,7 +25,7 @@ class ClosedLoop:
         self.knowledge = LocalKnowledgeBase(config["paths"]["knowledge_base"])
         self.memory = AttackMemory(config["paths"]["memory_db"])
 
-    def run(self, rounds: int | None = None, family_plan: list[str] | None = None, seed: int | None = None, attack_generator=None) -> list[dict]:
+    def run(self, rounds: int | None = None, family_plan: list[str] | None = None, seed: int | None = None, attack_generator=None, detector_mode: str = "static", hard_examples: pd.DataFrame | None = None) -> list[dict]:
         rounds = rounds or self.config["pipeline"]["rounds"]
         seed = self.config["seed"] if seed is None else seed
         family_plan = family_plan or build_round_family_plan(rounds, seed)
@@ -75,7 +75,10 @@ class ClosedLoop:
             detector_attacks = train_attacks.iloc[:train_size].copy()
             fidelity = evaluate_fidelity(fidelity_reference, unseen_attacks)
             diversity = evaluate_diversity(unseen_attacks)
-            training = pd.concat([train_reference, detector_attacks], ignore_index=True)
+            training_parts = [train_reference, detector_attacks]
+            if detector_mode == "continual" and hard_examples is not None and not hard_examples.empty:
+                training_parts.append(hard_examples)
+            training = pd.concat(training_parts, ignore_index=True)
             detector = FraudDetector()
             detector.fit(training)
             validation_data = pd.concat([holdout.assign(is_fraud=0), unseen_attacks], ignore_index=True)
@@ -86,13 +89,18 @@ class ClosedLoop:
             evaluation["unseen_attack_rows"] = len(unseen_attacks)
             evaluation["train_reference_rows"] = len(train_reference)
             evaluation["validation_legitimate_rows"] = len(holdout)
+            if detector_mode == "continual" and hard_examples is not None:
+                predictions = detector.predict(unseen_attacks)
+                missed = unseen_attacks.loc[predictions == 0].copy()
+                hard_examples = missed if hard_examples.empty else pd.concat([hard_examples, missed], ignore_index=True).drop_duplicates()
+            evaluation["hard_examples_replayed"] = int(len(hard_examples)) if hard_examples is not None else 0
             weakness = self.agents.analyze(round_id, evaluation, fidelity)
             previous_weakness = weakness
             self.memory.add(MemoryRecord(round_id=round_id, record_type="hypothesis", content=hypothesis.model_dump()))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="specification", content=specification.model_dump()))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="evaluation", content={"detection": evaluation, "fidelity": fidelity, "diversity": diversity, "novelty": novelty}))
             self.memory.add(MemoryRecord(round_id=round_id, record_type="weakness", content=weakness.model_dump()))
-            results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "novelty": novelty, "detection": evaluation, "weakness": weakness, "family_decision": recommendation})
+            results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "novelty": novelty, "detection": evaluation, "weakness": weakness, "family_decision": recommendation, "detector_mode": detector_mode})
             print(f"[seed={seed}] round {round_id}/{rounds} complete | family={chosen_family} | f1={evaluation.get('f1', 0.0):.4f} | novelty={novelty.get('novelty_score', 0.0):.4f}")
         print(f"[seed={seed}] run complete. Total rounds: {len(results)}")
         return results
@@ -117,7 +125,7 @@ class ClosedLoop:
             print(f"[robustness] starting seed {run_seed} with family plan: {family_plan}")
             if attack_generator is not None:
                 attack_generator.model.set_random_state(run_seed)
-            run_results = self.run(rounds=rounds, family_plan=family_plan, seed=run_seed, attack_generator=attack_generator)
+            run_results = self.run(rounds=rounds, family_plan=family_plan, seed=run_seed, attack_generator=attack_generator, detector_mode=self.config.get("detector_mode", "static"), hard_examples=pd.DataFrame())
             all_runs.append(run_results)
             print(f"[robustness] completed seed {run_seed} with {len(run_results)} rounds")
 

@@ -21,6 +21,10 @@ class FraudDetector:
     def fit(self, data: pd.DataFrame) -> None:
         self.pipeline.fit(data[FEATURES], data["is_fraud"])
 
+    def predict(self, data: pd.DataFrame) -> pd.Series:
+        probabilities = self.pipeline.predict_proba(data[FEATURES])[:, 1]
+        return pd.Series((probabilities >= 0.5).astype(int), index=data.index)
+
     def _family_metrics(self, data: pd.DataFrame, probabilities: pd.Series) -> dict[str, dict[str, float | int]]:
         if "attack_family" not in data.columns:
             return {}
