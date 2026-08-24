@@ -1,0 +1,43 @@
+{
+  "taxonomy_version": "taxonomy_v1",
+  "status": "approved_benchmark",
+  "scope": "schema-grounded synthetic payment-security evaluation",
+  "families": [
+    {
+      "name": "account_takeover",
+      "definition": "Synthetic payment behavior following account compromise.",
+      "observable_features": ["device_change", "beneficiary_change", "velocity_24h", "amount"]
+    },
+    {
+      "name": "trusted_device",
+      "definition": "Synthetic fraudulent behavior that preserves familiar-device signals.",
+      "observable_features": ["device_change", "beneficiary_change", "velocity_24h"]
+    },
+    {
+      "name": "beneficiary_manipulation",
+      "definition": "Synthetic fraud centered on suspicious payment-recipient changes.",
+      "observable_features": ["beneficiary_change", "amount", "channel"]
+    },
+    {
+      "name": "low_and_slow",
+      "definition": "Synthetic fraud distributed across modest amounts and low velocity.",
+      "observable_features": ["amount", "velocity_24h", "hour"]
+    },
+    {
+      "name": "social_engineering",
+      "definition": "Synthetic behavior representing user-manipulated payment activity.",
+      "observable_features": ["hour", "amount", "beneficiary_change"]
+    },
+    {
+      "name": "merchant_abuse",
+      "definition": "Synthetic unusual merchant or refund-related transaction behavior.",
+      "observable_features": ["channel", "amount", "velocity_24h"]
+    },
+    {
+      "name": "cross_channel_anomaly",
+      "definition": "Synthetic anomalous behavior distributed across payment channels.",
+      "observable_features": ["channel", "device_change", "beneficiary_change"]
+    }
+  ],
+  "promotion_policy": "New variants and composites remain candidates until schema, realism, generator, novelty, and repeated-seed checks pass."
+}
