@@ -40,8 +40,8 @@ class ConditionalCTGANGenerator:
         self.model.set_random_state(seed)
         conditioned_batches = []
         remaining = size
-        for attempt in range(8):
-            batch_size = max(remaining * 3, 30)
+        for attempt in range(32):
+            batch_size = max(remaining * 5, 50)
             candidate = self.model.sample(batch_size, condition_column="attack_family", condition_value=specification.attack_family)
             matched = candidate[candidate["attack_family"] == specification.attack_family]
             if not matched.empty:
