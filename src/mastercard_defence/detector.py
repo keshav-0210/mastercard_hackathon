@@ -21,15 +21,36 @@ class FraudDetector:
     def fit(self, data: pd.DataFrame) -> None:
         self.pipeline.fit(data[FEATURES], data["is_fraud"])
 
+    def _family_metrics(self, data: pd.DataFrame, probabilities: pd.Series) -> dict[str, dict[str, float | int]]:
+        if "attack_family" not in data.columns:
+            return {}
+
+        family_metrics: dict[str, dict[str, float | int]] = {}
+        for family, family_data in data[data["is_fraud"] == 1].groupby("attack_family", dropna=False):
+            family_index = family_data.index
+            family_probs = probabilities.loc[family_index]
+            family_predictions = (family_probs >= 0.5).astype(int)
+            family_labels = family_data["is_fraud"]
+            family_metrics[family] = {
+                "precision": float(precision_score(family_labels, family_predictions, zero_division=0)),
+                "recall": float(recall_score(family_labels, family_predictions, zero_division=0)),
+                "f1": float(f1_score(family_labels, family_predictions, zero_division=0)),
+                "roc_auc": float(roc_auc_score(family_labels, family_probs)) if family_labels.nunique() > 1 else 0.5,
+                "support": int(len(family_data)),
+            }
+        return family_metrics
+
     def evaluate(self, data: pd.DataFrame) -> dict:
-        probabilities = self.pipeline.predict_proba(data[FEATURES])[:, 1]
+        probabilities = pd.Series(self.pipeline.predict_proba(data[FEATURES])[:, 1], index=data.index)
         predictions = (probabilities >= 0.5).astype(int)
         labels = data["is_fraud"]
-        return {
+        result = {
             "precision": float(precision_score(labels, predictions, zero_division=0)),
             "recall": float(recall_score(labels, predictions, zero_division=0)),
             "f1": float(f1_score(labels, predictions, zero_division=0)),
             "roc_auc": float(roc_auc_score(labels, probabilities)) if labels.nunique() > 1 else 0.5,
             "false_positive_rate": float(((predictions == 1) & (labels == 0)).sum() / max((labels == 0).sum(), 1)),
             "confusion_matrix": confusion_matrix(labels, predictions).tolist(),
+            "by_attack_family": self._family_metrics(data, probabilities),
         }
+        return result

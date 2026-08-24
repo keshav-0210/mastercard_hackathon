@@ -15,7 +15,18 @@ class AttackMemory:
         self.connection.commit()
 
     def add(self, record: MemoryRecord) -> None:
-        self.connection.execute("INSERT INTO records(round_id, record_type, content, created_at) VALUES (?, ?, ?, ?)", (record.round_id, record.record_type, json.dumps(record.content), record.created_at.isoformat()))
+        record_type = str(getattr(record.record_type, "value", record.record_type))
+        content = str(json.dumps(record.content))
+        created_at = str(record.created_at.isoformat())
+        self.connection.execute(
+            "INSERT INTO records(round_id, record_type, content, created_at) VALUES (?, ?, ?, ?)",
+            (
+                int(record.round_id),
+                record_type,
+                content,
+                created_at,
+            ),
+        )
         self.connection.commit()
 
     def recent_context(self, limit: int = 12) -> list[str]:
