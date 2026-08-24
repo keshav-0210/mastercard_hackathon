@@ -1,0 +1,596 @@
+{
+  "run_timestamp_utc": "20260824T123152Z",
+  "experiment": "adaptive_qwen_ctgan_continual_detector",
+  "generator_backend": "conditional_ctgan",
+  "agent_backend": "QwenAgents",
+  "detector_mode": "continual",
+  "reference_comparison": "Reference 3: adaptive Qwen + CTGAN + static detector",
+  "seed_count": 3,
+  "rounds": 5,
+  "summary": {
+    "f1": {
+      "mean": 0.8115,
+      "std": 0.0315,
+      "min": 0.7576,
+      "max": 0.8533
+    },
+    "recall": {
+      "mean": 0.76,
+      "std": 0.0666,
+      "min": 0.625,
+      "max": 0.8375
+    },
+    "precision": {
+      "mean": 0.8801,
+      "std": 0.0609,
+      "min": 0.7722,
+      "max": 1.0
+    },
+    "roc_auc": {
+      "mean": 0.9178,
+      "std": 0.0101,
+      "min": 0.9,
+      "max": 0.9309
+    },
+    "novelty_score": {
+      "mean": 0.9709,
+      "std": 0.0096,
+      "min": 0.9583,
+      "max": 1.0
+    },
+    "behavioural_plausibility": {
+      "mean": 0.5914,
+      "std": 0.0664,
+      "min": 0.4798,
+      "max": 0.677
+    }
+  },
+  "round_metrics": [
+    {
+      "seed": 20260821,
+      "round": 1,
+      "attack_family": "account_takeover",
+      "f1": 0.7575757575757576,
+      "recall": 0.625,
+      "precision": 0.9615384615384616,
+      "roc_auc": 0.9150625,
+      "false_positive_rate": 0.02,
+      "hard_examples_replayed": 30,
+      "behavioural_plausibility": 0.4977,
+      "novelty_score": 1.0,
+      "channel_entropy": 0.9163,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "seeded_plan",
+        "family": "account_takeover",
+        "reason": "Initial family selected from the reproducible seeded plan."
+      },
+      "weakness": {
+        "round_id": 1,
+        "observed_weaknesses": [
+          "Detection precision is high but recall is low for account takeover attacks",
+          "Fidelity test shows high fraud rate and low behavioural plausibility"
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.9615384615384616, \"recall\": 0.625, \"f1\": 0.7575757575757576, \"roc_auc\": 0.9150625, \"false_positive_rate\": 0.02, \"confusion_matrix\": [[98, 2], [30, 50]], \"by_attack_family\": {\"account_takeover\": {\"precision\": 1.0, \"recall\": 0.625, \"f1\": 0.7692307692307693, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 30}",
+          "Fidelity metrics: {\"amount_mean_delta\": 14.9226, \"amount_std_delta\": 36.1059, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.1, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.4977, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "high",
+        "recommended_next_attack_direction": "Improve detection recall for account takeover attacks and increase behavioural plausibility in synthetic data",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260821,
+      "round": 2,
+      "attack_family": "trusted_device",
+      "f1": 0.8115942028985508,
+      "recall": 0.7,
+      "precision": 0.9655172413793104,
+      "roc_auc": 0.901625,
+      "false_positive_rate": 0.02,
+      "hard_examples_replayed": 54,
+      "behavioural_plausibility": 0.6148,
+      "novelty_score": 0.9583,
+      "channel_entropy": 0.8756,
+      "unique_row_ratio": 0.9875,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "trusted_device",
+        "recommendation_type": "approved_family",
+        "reason": "The detector has high precision but low recall for account takeover attacks, indicating a significant number of such attacks are being missed. Exploiting this weakness can help improve detection recall.",
+        "target_weakness": "Detection precision is high but recall is low for account takeover attacks Fidelity test shows high fraud rate and low behavioural plausibility",
+        "confidence": 0.85
+      },
+      "weakness": {
+        "round_id": 2,
+        "observed_weaknesses": [
+          "Detection precision is high but recall is low, indicating many attacks are missed.",
+          "Fidelity behavioural plausibility score is low, suggesting the synthetic data may not be as realistic as intended."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.9655172413793104, \"recall\": 0.7, \"f1\": 0.8115942028985508, \"roc_auc\": 0.901625, \"false_positive_rate\": 0.02, \"confusion_matrix\": [[98, 2], [24, 56]], \"by_attack_family\": {\"trusted_device\": {\"precision\": 1.0, \"recall\": 0.7, \"f1\": 0.8235294117647058, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 54}",
+          "Fidelity metrics: {\"amount_mean_delta\": 7.6607, \"amount_std_delta\": 18.735, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.0708, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.6148, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve detection recall for trusted_device attacks and enhance the realism of synthetic data to increase fidelity scores.",
+        "confidence": 0.8
+      }
+    },
+    {
+      "seed": 20260821,
+      "round": 3,
+      "attack_family": "beneficiary_manipulation",
+      "f1": 0.7922077922077922,
+      "recall": 0.7625,
+      "precision": 0.8243243243243243,
+      "roc_auc": 0.910625,
+      "false_positive_rate": 0.13,
+      "hard_examples_replayed": 73,
+      "behavioural_plausibility": 0.6752,
+      "novelty_score": 0.9583,
+      "channel_entropy": 0.9289,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "beneficiary_manipulation",
+        "recommendation_type": "approved_family",
+        "reason": "The current detector has a high precision but low recall for trusted_device attacks, indicating many such attacks are being missed. Enhancing this area will improve overall detection effectiveness.",
+        "target_weakness": "Detection precision is high but recall is low, indicating many attacks are missed. Fidelity behavioural plausibility score is low, suggesting the synthetic data may not be as realistic as intended.",
+        "confidence": 0.6
+      },
+      "weakness": {
+        "round_id": 3,
+        "observed_weaknesses": [
+          "Detection precision for beneficiary manipulation is 100%, but recall is only 76.25%, indicating potential false negatives.",
+          "Fidelity test shows a high fraud rate of 100% and a behavioural signal delta of 1.1542, suggesting the synthetic data may be too extreme or unrealistic."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8243243243243243, \"recall\": 0.7625, \"f1\": 0.7922077922077922, \"roc_auc\": 0.910625, \"false_positive_rate\": 0.13, \"confusion_matrix\": [[87, 13], [19, 61]], \"by_attack_family\": {\"beneficiary_manipulation\": {\"precision\": 1.0, \"recall\": 0.7625, \"f1\": 0.8652482269503546, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 73}",
+          "Fidelity metrics: {\"amount_mean_delta\": 6.5109, \"amount_std_delta\": 0.7584, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.1542, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.6752, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve detection recall for beneficiary manipulation by refining the model to better identify false negatives.",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260821,
+      "round": 4,
+      "attack_family": "low_and_slow",
+      "f1": 0.8129032258064516,
+      "recall": 0.7875,
+      "precision": 0.84,
+      "roc_auc": 0.916375,
+      "false_positive_rate": 0.12,
+      "hard_examples_replayed": 90,
+      "behavioural_plausibility": 0.677,
+      "novelty_score": 0.9583,
+      "channel_entropy": 0.9539,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "low_and_slow",
+        "recommendation_type": "approved_family",
+        "reason": "The detection model has a high precision but low recall for beneficiary manipulation, indicating potential false negatives. The 'low_and_slow' family can be used to exploit this weakness by gradually manipulating beneficiaries over time, increasing the chances of going undetected.",
+        "target_weakness": "Detection precision for beneficiary manipulation is 100%, but recall is only 76.25%, indicating potential false negatives. Fidelity test shows a high fraud rate of 100% and a behavioural signal delta of 1.1542, suggesting the synthetic data may be too extreme or unrealistic.",
+        "confidence": 0.85
+      },
+      "weakness": {
+        "round_id": 4,
+        "observed_weaknesses": [
+          "Low precision for 'low_and_slow' attack family (1.0) despite high recall (0.7875)"
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.84, \"recall\": 0.7875, \"f1\": 0.8129032258064516, \"roc_auc\": 0.916375, \"false_positive_rate\": 0.12, \"confusion_matrix\": [[88, 12], [17, 63]], \"by_attack_family\": {\"low_and_slow\": {\"precision\": 1.0, \"recall\": 0.7875, \"f1\": 0.8811188811188811, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 90}",
+          "Fidelity metrics: {\"amount_mean_delta\": 2.7013, \"amount_std_delta\": 1.4673, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.2125, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.677, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve detection model for 'low_and_slow' attack family, focusing on precision",
+        "confidence": 0.9
+      }
+    },
+    {
+      "seed": 20260821,
+      "round": 5,
+      "attack_family": "social_engineering",
+      "f1": 0.8461538461538461,
+      "recall": 0.825,
+      "precision": 0.868421052631579,
+      "roc_auc": 0.9278749999999999,
+      "false_positive_rate": 0.1,
+      "hard_examples_replayed": 104,
+      "behavioural_plausibility": 0.488,
+      "novelty_score": 0.9744,
+      "channel_entropy": 0.9412,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "social_engineering",
+        "recommendation_type": "approved_family",
+        "reason": "The 'low_and_slow' attack family has high recall but low precision, indicating a weakness in distinguishing between legitimate and malicious transactions. The 'social_engineering' family is less likely to be targeted by the current detection model, thus providing an opportunity to exploit this weakness.",
+        "target_weakness": "Low precision for 'low_and_slow' attack family (1.0) despite high recall (0.7875)",
+        "confidence": 0.8
+      },
+      "weakness": {
+        "round_id": 5,
+        "observed_weaknesses": [
+          "Detection model performs well on social engineering attacks but may lack in distinguishing between legitimate and social engineering attacks in the unseen data set.",
+          "Fidelity test shows high fraud rate and behavioural signal delta, but low behavioural plausibility, indicating potential issues with the synthetic data's realism."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.868421052631579, \"recall\": 0.825, \"f1\": 0.8461538461538461, \"roc_auc\": 0.9278749999999999, \"false_positive_rate\": 0.1, \"confusion_matrix\": [[90, 10], [14, 66]], \"by_attack_family\": {\"social_engineering\": {\"precision\": 1.0, \"recall\": 0.825, \"f1\": 0.9041095890410958, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 104}",
+          "Fidelity metrics: {\"amount_mean_delta\": 10.8504, \"amount_std_delta\": 34.1758, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.2542, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.488, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve the detection model's ability to distinguish between legitimate and social engineering attacks in unseen data. Enhance the realism of the synthetic data by increasing the behavioural plausibility.",
+        "confidence": 0.8
+      }
+    },
+    {
+      "seed": 20260822,
+      "round": 1,
+      "attack_family": "account_takeover",
+      "f1": 0.762589928057554,
+      "recall": 0.6625,
+      "precision": 0.8983050847457628,
+      "roc_auc": 0.9,
+      "false_positive_rate": 0.06,
+      "hard_examples_replayed": 27,
+      "behavioural_plausibility": 0.4798,
+      "novelty_score": 0.9688,
+      "channel_entropy": 0.9713,
+      "unique_row_ratio": 0.9875,
+      "family_decision": {
+        "source": "seeded_plan",
+        "family": "account_takeover",
+        "reason": "Initial family selected from the reproducible seeded plan."
+      },
+      "weakness": {
+        "round_id": 1,
+        "observed_weaknesses": [
+          "Detection precision is high but recall is low for account takeover attacks",
+          "Fidelity test shows high fraud rate but low behavioural plausibility"
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8983050847457628, \"recall\": 0.6625, \"f1\": 0.762589928057554, \"roc_auc\": 0.9, \"false_positive_rate\": 0.06, \"confusion_matrix\": [[94, 6], [27, 53]], \"by_attack_family\": {\"account_takeover\": {\"precision\": 1.0, \"recall\": 0.6625, \"f1\": 0.7969924812030075, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 27}",
+          "Fidelity metrics: {\"amount_mean_delta\": 7.5826, \"amount_std_delta\": 30.8179, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.325, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.4798, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Focus on improving detection for account takeover attacks and enhancing the plausibility of synthetic data in fidelity tests",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260822,
+      "round": 2,
+      "attack_family": "trusted_device",
+      "f1": 0.8421052631578947,
+      "recall": 0.8,
+      "precision": 0.8888888888888888,
+      "roc_auc": 0.92675,
+      "false_positive_rate": 0.08,
+      "hard_examples_replayed": 43,
+      "behavioural_plausibility": 0.597,
+      "novelty_score": 0.9688,
+      "channel_entropy": 0.9505,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "trusted_device",
+        "recommendation_type": "approved_family",
+        "reason": "The detector has high precision but low recall for account takeover attacks, indicating a significant number of such attacks are being missed. Exploiting this weakness can help in identifying and mitigating such attacks more effectively.",
+        "target_weakness": "Detection precision is high but recall is low for account takeover attacks Fidelity test shows high fraud rate but low behavioural plausibility",
+        "confidence": 0.6
+      },
+      "weakness": {
+        "round_id": 2,
+        "observed_weaknesses": [
+          "Detection precision is high but recall is slightly lower, indicating potential false negatives.",
+          "Fidelity behavioural plausibility score is low, suggesting the synthetic data may not be as realistic as intended."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8888888888888888, \"recall\": 0.8, \"f1\": 0.8421052631578947, \"roc_auc\": 0.92675, \"false_positive_rate\": 0.08, \"confusion_matrix\": [[92, 8], [16, 64]], \"by_attack_family\": {\"trusted_device\": {\"precision\": 1.0, \"recall\": 0.8, \"f1\": 0.8888888888888888, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 43}",
+          "Fidelity metrics: {\"amount_mean_delta\": 5.2343, \"amount_std_delta\": 19.8763, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.1167, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.597, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Increase the fidelity of the synthetic data to better match the real-world scenarios, particularly focusing on the behavioural plausibility.",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260822,
+      "round": 3,
+      "attack_family": "low_and_slow",
+      "f1": 0.7973856209150327,
+      "recall": 0.7625,
+      "precision": 0.8356164383561644,
+      "roc_auc": 0.9070000000000001,
+      "false_positive_rate": 0.12,
+      "hard_examples_replayed": 62,
+      "behavioural_plausibility": 0.5108,
+      "novelty_score": 0.9688,
+      "channel_entropy": 0.92,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "low_and_slow",
+        "recommendation_type": "approved_family",
+        "reason": "The detector has high precision but low recall, indicating potential false negatives. The low fidelity behavioural plausibility score suggests the synthetic data may not be as realistic as intended. The 'low_and_slow' family can help improve the detection recall by mimicking real-world slow and persistent attack patterns.",
+        "target_weakness": "Detection precision is high but recall is slightly lower, indicating potential false negatives. Fidelity behavioural plausibility score is low, suggesting the synthetic data may not be as realistic as intended.",
+        "confidence": 0.6
+      },
+      "weakness": {
+        "round_id": 3,
+        "observed_weaknesses": [
+          "Low precision for 'low_and_slow' attack family (86.52%)",
+          "High false positive rate (12%)",
+          "Moderate behavioural plausibility score (0.51)"
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8356164383561644, \"recall\": 0.7625, \"f1\": 0.7973856209150327, \"roc_auc\": 0.9070000000000001, \"false_positive_rate\": 0.12, \"confusion_matrix\": [[88, 12], [19, 61]], \"by_attack_family\": {\"low_and_slow\": {\"precision\": 1.0, \"recall\": 0.7625, \"f1\": 0.8652482269503546, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 62}",
+          "Fidelity metrics: {\"amount_mean_delta\": 4.22, \"amount_std_delta\": 24.1947, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.4042, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.5108, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve detection precision for 'low_and_slow' attack family and reduce false positive rate",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260822,
+      "round": 4,
+      "attack_family": "beneficiary_manipulation",
+      "f1": 0.7672955974842768,
+      "recall": 0.7625,
+      "precision": 0.7721518987341772,
+      "roc_auc": 0.9157500000000001,
+      "false_positive_rate": 0.18,
+      "hard_examples_replayed": 81,
+      "behavioural_plausibility": 0.632,
+      "novelty_score": 0.9735,
+      "channel_entropy": 0.9289,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "beneficiary_manipulation",
+        "recommendation_type": "approved_family",
+        "reason": "The detector has a low precision for the 'low_and_slow' attack family, indicating a potential exploit opportunity.",
+        "target_weakness": "Low precision for 'low_and_slow' attack family (86.52%) High false positive rate (12%) Moderate behavioural plausibility score (0.51)",
+        "confidence": 0.8
+      },
+      "weakness": {
+        "round_id": 4,
+        "observed_weaknesses": [
+          "Detection precision and recall are slightly below 0.8, indicating potential room for improvement in identifying beneficiary manipulation attacks.",
+          "Fidelity test shows a high fraud rate and a significant mean delta in the amount field, suggesting the synthetic data may be too realistic and could be used to bypass detection systems."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.7721518987341772, \"recall\": 0.7625, \"f1\": 0.7672955974842768, \"roc_auc\": 0.9157500000000001, \"false_positive_rate\": 0.18, \"confusion_matrix\": [[82, 18], [19, 61]], \"by_attack_family\": {\"beneficiary_manipulation\": {\"precision\": 1.0, \"recall\": 0.7625, \"f1\": 0.8652482269503546, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 81}",
+          "Fidelity metrics: {\"amount_mean_delta\": 0.6703, \"amount_std_delta\": 14.9886, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.175, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.632, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Focus on improving the detection model for beneficiary manipulation attacks and ensuring the synthetic data is sufficiently varied to avoid overfitting to the training data.",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260822,
+      "round": 5,
+      "attack_family": "cross_channel_anomaly",
+      "f1": 0.8271604938271605,
+      "recall": 0.8375,
+      "precision": 0.8170731707317073,
+      "roc_auc": 0.921375,
+      "false_positive_rate": 0.15,
+      "hard_examples_replayed": 94,
+      "behavioural_plausibility": 0.6685,
+      "novelty_score": 0.9706,
+      "channel_entropy": 0.9076,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "cross_channel_anomaly",
+        "recommendation_type": "approved_family",
+        "reason": "The synthetic data's high fidelity and the detection model's precision and recall below 0.8 suggest that the data may be too realistic, making it easier to bypass detection systems. The cross-channel anomaly family can exploit these weaknesses by introducing varied and realistic anomalies that the current detection model might not fully capture.",
+        "target_weakness": "Detection precision and recall are slightly below 0.8, indicating potential room for improvement in identifying beneficiary manipulation attacks. Fidelity test shows a high fraud rate and a significant mean delta in the amount field, suggesting the synthetic data may be too realistic and could be used to bypass detection systems.",
+        "confidence": 0.85
+      },
+      "weakness": {
+        "round_id": 5,
+        "observed_weaknesses": [
+          "Detection model has a false positive rate of 15%, which could lead to unnecessary investigation.",
+          "For cross_channel_anomaly, the detection model has a high precision but a low ROC AUC of 0.5, indicating potential overfitting."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8170731707317073, \"recall\": 0.8375, \"f1\": 0.8271604938271605, \"roc_auc\": 0.921375, \"false_positive_rate\": 0.15, \"confusion_matrix\": [[85, 15], [13, 67]], \"by_attack_family\": {\"cross_channel_anomaly\": {\"precision\": 1.0, \"recall\": 0.8375, \"f1\": 0.9115646258503401, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 94}",
+          "Fidelity metrics: {\"amount_mean_delta\": 0.6014, \"amount_std_delta\": 7.962, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.1625, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.6685, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve the detection model's ROC AUC for cross_channel_anomaly and reduce the false positive rate.",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260823,
+      "round": 1,
+      "attack_family": "social_engineering",
+      "f1": 0.7878787878787878,
+      "recall": 0.65,
+      "precision": 1.0,
+      "roc_auc": 0.9295000000000001,
+      "false_positive_rate": 0.0,
+      "hard_examples_replayed": 28,
+      "behavioural_plausibility": 0.5611,
+      "novelty_score": 0.9706,
+      "channel_entropy": 0.8997,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "seeded_plan",
+        "family": "social_engineering",
+        "reason": "Initial family selected from the reproducible seeded plan."
+      },
+      "weakness": {
+        "round_id": 1,
+        "observed_weaknesses": [
+          "Detection model is strong for precision but moderate in recall, especially for social engineering attacks.",
+          "Fidelity test shows high behavioral signal delta but low behavioral plausibility, indicating potential issues with the synthetic data's realism."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 1.0, \"recall\": 0.65, \"f1\": 0.7878787878787878, \"roc_auc\": 0.9295000000000001, \"false_positive_rate\": 0.0, \"confusion_matrix\": [[100, 0], [28, 52]], \"by_attack_family\": {\"social_engineering\": {\"precision\": 1.0, \"recall\": 0.65, \"f1\": 0.7878787878787878, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 28}",
+          "Fidelity metrics: {\"amount_mean_delta\": 5.0814, \"amount_std_delta\": 3.4935, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.5125, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.5611, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve the detection model's recall, particularly for social engineering attacks, and enhance the realism of the synthetic data to increase behavioral plausibility.",
+        "confidence": 1.0
+      }
+    },
+    {
+      "seed": 20260823,
+      "round": 2,
+      "attack_family": "account_takeover",
+      "f1": 0.8322147651006712,
+      "recall": 0.775,
+      "precision": 0.8985507246376812,
+      "roc_auc": 0.909625,
+      "false_positive_rate": 0.07,
+      "hard_examples_replayed": 46,
+      "behavioural_plausibility": 0.6157,
+      "novelty_score": 0.9706,
+      "channel_entropy": 0.9078,
+      "unique_row_ratio": 0.9875,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "account_takeover",
+        "recommendation_type": "approved_family",
+        "reason": "The detection model has a moderate recall, especially for social engineering attacks, which indicates a weakness that can be exploited.",
+        "target_weakness": "Detection model is strong for precision but moderate in recall, especially for social engineering attacks. Fidelity test shows high behavioral signal delta but low behavioral plausibility, indicating potential issues with the synthetic data's realism.",
+        "confidence": 0.6
+      },
+      "weakness": {
+        "round_id": 2,
+        "observed_weaknesses": [
+          "Detection precision for account takeover is 100%, but recall is only 77.5%, indicating potential false negatives.",
+          "Fidelity test shows a high fraud rate of 100%, but behavioural plausibility is only 0.6157, suggesting the synthetic data may not be realistic enough."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8985507246376812, \"recall\": 0.775, \"f1\": 0.8322147651006712, \"roc_auc\": 0.909625, \"false_positive_rate\": 0.07, \"confusion_matrix\": [[93, 7], [18, 62]], \"by_attack_family\": {\"account_takeover\": {\"precision\": 1.0, \"recall\": 0.775, \"f1\": 0.8732394366197183, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 46}",
+          "Fidelity metrics: {\"amount_mean_delta\": 1.7884, \"amount_std_delta\": 9.4476, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.2125, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.6157, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve the detection model to reduce false negatives, particularly for account takeover attacks, and validate the realism of the synthetic data by comparing it with permitted reference data.",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260823,
+      "round": 3,
+      "attack_family": "trusted_device",
+      "f1": 0.8533333333333334,
+      "recall": 0.8,
+      "precision": 0.9142857142857143,
+      "roc_auc": 0.930375,
+      "false_positive_rate": 0.06,
+      "hard_examples_replayed": 62,
+      "behavioural_plausibility": 0.6463,
+      "novelty_score": 0.9744,
+      "channel_entropy": 0.8289,
+      "unique_row_ratio": 0.9875,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "trusted_device",
+        "recommendation_type": "approved_family",
+        "reason": "The detection model has a precision of 100% but a low recall of 77.5% for account takeover attacks, indicating potential false negatives that can be exploited.",
+        "target_weakness": "Detection precision for account takeover is 100%, but recall is only 77.5%, indicating potential false negatives. Fidelity test shows a high fraud rate of 100%, but behavioural plausibility is only 0.6157, suggesting the synthetic data may not be realistic enough.",
+        "confidence": 0.85
+      },
+      "weakness": {
+        "round_id": 3,
+        "observed_weaknesses": [
+          "Detection precision is high but recall is lower, indicating potential false negatives.",
+          "Fidelity metrics suggest the model may not be capturing the full behavioral signal, especially in the trusted device attack family."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.9142857142857143, \"recall\": 0.8, \"f1\": 0.8533333333333334, \"roc_auc\": 0.930375, \"false_positive_rate\": 0.06, \"confusion_matrix\": [[94, 6], [16, 64]], \"by_attack_family\": {\"trusted_device\": {\"precision\": 1.0, \"recall\": 0.8, \"f1\": 0.8888888888888888, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 62}",
+          "Fidelity metrics: {\"amount_mean_delta\": 4.0039, \"amount_std_delta\": 7.9878, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.0708, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.6463, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Increase the model's recall for the trusted device attack family and improve the behavioral plausibility score.",
+        "confidence": 0.85
+      }
+    },
+    {
+      "seed": 20260823,
+      "round": 4,
+      "attack_family": "beneficiary_manipulation",
+      "f1": 0.8496732026143791,
+      "recall": 0.8125,
+      "precision": 0.8904109589041096,
+      "roc_auc": 0.924375,
+      "false_positive_rate": 0.08,
+      "hard_examples_replayed": 77,
+      "behavioural_plausibility": 0.6161,
+      "novelty_score": 0.9744,
+      "channel_entropy": 0.8718,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "beneficiary_manipulation",
+        "recommendation_type": "approved_family",
+        "reason": "The model has high precision but low recall for the trusted device attack family, indicating potential false negatives. Improving recall in this family is a priority.",
+        "target_weakness": "Detection precision is high but recall is lower, indicating potential false negatives. Fidelity metrics suggest the model may not be capturing the full behavioral signal, especially in the trusted device attack family.",
+        "confidence": 0.6
+      },
+      "weakness": {
+        "round_id": 4,
+        "observed_weaknesses": [
+          "Detection model has a high false positive rate (8%) which could lead to unnecessary investigations.",
+          "For the 'beneficiary_manipulation' attack family, the detection model has a high precision but low recall, indicating it may miss some instances of this attack."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8904109589041096, \"recall\": 0.8125, \"f1\": 0.8496732026143791, \"roc_auc\": 0.924375, \"false_positive_rate\": 0.08, \"confusion_matrix\": [[92, 8], [15, 65]], \"by_attack_family\": {\"beneficiary_manipulation\": {\"precision\": 1.0, \"recall\": 0.8125, \"f1\": 0.896551724137931, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 77}",
+          "Fidelity metrics: {\"amount_mean_delta\": 0.6467, \"amount_std_delta\": 6.9018, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.3167, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.6161, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve the detection model's recall for the 'beneficiary_manipulation' attack family and reduce the false positive rate.",
+        "confidence": 0.9
+      }
+    },
+    {
+      "seed": 20260823,
+      "round": 5,
+      "attack_family": "cross_channel_anomaly",
+      "f1": 0.8322981366459627,
+      "recall": 0.8375,
+      "precision": 0.8271604938271605,
+      "roc_auc": 0.930875,
+      "false_positive_rate": 0.14,
+      "hard_examples_replayed": 90,
+      "behavioural_plausibility": 0.5916,
+      "novelty_score": 0.9744,
+      "channel_entropy": 0.9271,
+      "unique_row_ratio": 1.0,
+      "family_decision": {
+        "source": "agent_1_adaptive_recommendation",
+        "recommended_family": "cross_channel_anomaly",
+        "recommendation_type": "approved_family",
+        "reason": "The detection model has a high false positive rate and low recall for the 'beneficiary_manipulation' attack family, making it less effective in identifying cross-channel anomalies. Exploiting this weakness can help in evading detection.",
+        "target_weakness": "Detection model has a high false positive rate (8%) which could lead to unnecessary investigations. For the 'beneficiary_manipulation' attack family, the detection model has a high precision but low recall, indicating it may miss some instances of this attack.",
+        "confidence": 0.6
+      },
+      "weakness": {
+        "round_id": 5,
+        "observed_weaknesses": [
+          "Detection model has a high false positive rate (14%) and low AUC-ROC (0.93) for cross-channel anomaly, indicating potential overfitting or misclassification issues.",
+          "Fidelity test shows a high mean delta (1.78) and standard deviation (8.76) in amount, suggesting variability in the synthetic data that may not align with real-world behavior."
+        ],
+        "supporting_evidence": [
+          "Detection metrics: {\"precision\": 0.8271604938271605, \"recall\": 0.8375, \"f1\": 0.8322981366459627, \"roc_auc\": 0.930875, \"false_positive_rate\": 0.14, \"confusion_matrix\": [[86, 14], [13, 67]], \"by_attack_family\": {\"cross_channel_anomaly\": {\"precision\": 1.0, \"recall\": 0.8375, \"f1\": 0.9115646258503401, \"roc_auc\": 0.5, \"support\": 80}}, \"evaluation_protocol\": \"unseen_attack_rows_and_legitimate_holdout\", \"train_attack_rows\": 48, \"unseen_attack_rows\": 80, \"train_reference_rows\": 320, \"validation_legitimate_rows\": 100, \"hard_examples_replayed\": 90}",
+          "Fidelity metrics: {\"amount_mean_delta\": 1.7782, \"amount_std_delta\": 8.7592, \"fraud_rate\": 1.0, \"behavioural_signal_delta\": 1.3292, \"channel_coverage\": 1.0, \"behavioural_plausibility\": 0.5916, \"passed\": true, \"notes\": [\"Synthetic-only reference and attack data; compare with permitted reference data before making realism claims.\"]}"
+        ],
+        "priority": "medium",
+        "recommended_next_attack_direction": "Improve the detection model's generalization by reducing false positives and increasing AUC-ROC, especially for cross-channel anomalies. Validate the synthetic data against real-world reference data to ensure fidelity.",
+        "confidence": 1.0
+      }
+    }
+  ]
+}
