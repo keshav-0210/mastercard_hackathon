@@ -11,7 +11,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import PageBreak, Paragraph, Preformatted, SimpleDocTemplate, Spacer
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "competition_architecture_report.md"
+SOURCE = Path(os.getenv("REPORT_SOURCE", ROOT / "competition_architecture_report.md"))
 OUTPUT = Path(os.getenv("REPORT_PDF_OUTPUT", ROOT / "Mastercard_AI_Defence_Lab_Architecture_Report.pdf"))
 RESULTS = Path(os.getenv("REPORT_RESULTS", "")) if os.getenv("REPORT_RESULTS") else None
 
