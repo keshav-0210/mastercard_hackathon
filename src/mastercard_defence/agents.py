@@ -125,7 +125,10 @@ class QwenAgents:
         if payload.get("recommended_family") not in candidates:
             payload["recommended_family"] = candidates[0]
         payload["target_weakness"] = " ".join(weakness.observed_weaknesses)
-        payload["confidence"] = min(1.0, max(0.0, float(payload.get("confidence", 0.5))))
+        confidence = payload.get("confidence", 0.5)
+        if isinstance(confidence, str):
+            confidence = {"low": 0.35, "medium": 0.6, "high": 0.85}.get(confidence.lower(), 0.5)
+        payload["confidence"] = min(1.0, max(0.0, float(confidence)))
         if payload.get("recommendation_type") not in {"approved_family", "adaptive_variant", "discovery_candidate"}:
             payload["recommendation_type"] = "approved_family"
         return FamilyRecommendation.model_validate(payload)
