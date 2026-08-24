@@ -93,6 +93,6 @@ def build_training_corpus(seed: int, attack_size: int = 100, reference_size: int
             beneficiary_pattern="family conditional", evasion_objective="synthetic evaluation",
         )
         rows = generate_attacks(specification, attack_size, 0, seed + index + 1)
-        attack_rows.append(rows[MODEL_COLUMNS[:-1]])
+        attack_rows.append(rows[MODEL_COLUMNS])
     attacks = pd.concat(attack_rows, ignore_index=True)
     return pd.concat([reference, attacks], ignore_index=True)[MODEL_COLUMNS]
