@@ -97,6 +97,9 @@ class QwenAgents:
         payload["realism_constraints"] = [
             f"{key}: {value}" for key, value in constraints.items()
         ] if isinstance(constraints, dict) else constraints
+        for field in ("temporal_pattern", "amount_pattern", "device_pattern", "beneficiary_pattern", "evasion_objective"):
+            if isinstance(payload.get(field), (dict, list)):
+                payload[field] = json.dumps(payload[field], ensure_ascii=True, sort_keys=True)
         payload["evidence"] = [item.model_dump() for item in hypothesis.evidence]
         return AttackSpecification.model_validate(payload)
 
