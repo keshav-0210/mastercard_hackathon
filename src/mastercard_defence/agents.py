@@ -172,5 +172,8 @@ class QwenAgents:
         payload["priority"] = str(payload.get("priority", "medium")).lower()
         if payload["priority"] not in {"low", "medium", "high"}:
             payload["priority"] = "medium"
-        payload["confidence"] = min(1.0, max(0.0, float(payload.get("confidence", 0.5))))
+        confidence = payload.get("confidence", 0.5)
+        if isinstance(confidence, str):
+            confidence = {"low": 0.35, "medium": 0.6, "high": 0.85}.get(confidence.lower(), 0.5)
+        payload["confidence"] = min(1.0, max(0.0, float(confidence)))
         return WeaknessReport.model_validate(payload)
