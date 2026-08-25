@@ -65,8 +65,8 @@ def build_charts(results_path: Path, output_dir: Path) -> None:
                 family_values.setdefault(family, []).append({
                     "round": row["round"],
                     "seed": row.get("seed"),
-                    "chosen": family == row.get("attack_family"),
                     **values,
+                    "chosen": family == row.get("attack_family"),
                 })
         elif row.get("attack_family"):
             family_values.setdefault(row["attack_family"], []).append({
