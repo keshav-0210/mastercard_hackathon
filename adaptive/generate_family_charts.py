@@ -59,13 +59,13 @@ def build_charts(results_path: Path, output_dir: Path) -> None:
     rows = load_rows(results_path)
     family_values: dict[str, list[dict]] = {}
     for row in rows:
-        all_metrics = row.get("all_family_metrics", {})
+        all_metrics = row.get("all_family_metrics") or row.get("by_attack_family", {})
         if all_metrics:
             for family, values in all_metrics.items():
                 family_values.setdefault(family, []).append({
                     "round": row["round"],
                     "seed": row.get("seed"),
-                    "chosen": bool(values.get("chosen", False)),
+                    "chosen": family == row.get("attack_family"),
                     **values,
                 })
         elif row.get("attack_family"):
