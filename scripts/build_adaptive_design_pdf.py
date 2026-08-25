@@ -30,8 +30,7 @@ def build() -> None:
         Paragraph("The final loop should be a stable benchmark with evidence-driven adaptation. The approved taxonomy keeps experiments comparable; detector weaknesses guide the next family or variant; new patterns become official only after validation.", styles["AdaptiveBody"]),
         Paragraph("The family levels", styles["AdaptiveH2"]),
         Paragraph("<b>Approved benchmark families:</b> account_takeover, trusted_device, beneficiary_manipulation, low_and_slow, social_engineering, merchant_abuse, cross_channel_anomaly.", styles["AdaptiveBody"]),
-        Paragraph("<b>Adaptive variants:</b> trusted_device_normal_velocity, low_and_slow_common_channel, beneficiary_manipulation_moderate_amount.", styles["AdaptiveBody"]),
-        Paragraph("<b>Discovery candidates:</b> combinations such as trusted_device_low_and_slow. These remain candidates until they pass novelty, realism, generator, and repeated-seed checks.", styles["AdaptiveBody"]),
+        Paragraph("<b>Family policy:</b> Agent 1 may change feature-level constraints, but every round must use exactly one of the seven approved families. Variants and composite families are not created.", styles["AdaptiveBody"]),
         Paragraph("How one round works", styles["AdaptiveH2"]),
         Paragraph("Base documents provide general payment-security knowledge. Attack Memory provides previous detector weaknesses. Agent 1 uses both to recommend a direction. The controller validates it, Agent 2 writes constraints, the generator creates rows, and the detector evaluates unseen rows.", styles["AdaptiveBody"]),
         Paragraph("Knowledge + memory → Agent 1 recommendation → controller validation → Agent 2 specification → generator → detector → Agent 3 weakness → memory", styles["AdaptiveCode"]),
@@ -39,7 +38,7 @@ def build() -> None:
         Paragraph("<b>Round 1:</b> The seeded schedule starts with account_takeover. The detector misses attacks that use normal devices.", styles["AdaptiveBody"]),
         Paragraph("<b>Round 2:</b> Agent 1 recommends trusted_device with normal device behavior, moderate beneficiary changes, ordinary velocity, and controlled amounts.", styles["AdaptiveBody"]),
         Paragraph("<b>Round 3:</b> If the detector still misses attacks spread over time, Agent 1 recommends low_and_slow.", styles["AdaptiveBody"]),
-        Paragraph("<b>Round 4:</b> If both weaknesses combine, Agent 1 proposes trusted_device_low_and_slow. The controller records it as a composite candidate, not an unreviewed new family.", styles["AdaptiveBody"]),
+        Paragraph("<b>Round 4:</b> If both weaknesses combine, Agent 1 continues with an approved family and changes its structured constraints. No composite family is created.", styles["AdaptiveBody"]),
         PageBreak(),
         Paragraph("How the recommendation is controlled", styles["AdaptiveH2"]),
     ]

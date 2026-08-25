@@ -1,0 +1,11 @@
+Source summary: Beneficiary manipulation fraud typology (project-authored defensive summary)
+Family slug: beneficiary_manipulation
+
+Beneficiary manipulation covers fraud built around changing where money ultimately goes rather than around the originating account or device. This includes adding or swapping payee details, redirecting recurring payments, or routing funds through freshly created or recently recruited mule accounts. Public industry typologies describe mule-account networks as a persistent challenge because a single compromised or manipulated beneficiary list can be reused across many fraudulent transactions before it is flagged.
+
+Observable behavioural signals mapped to this project's synthetic schema: beneficiary_change is the dominant and most elevated signal for this family, often well above the legitimate baseline, since the core mechanism is payee redirection; device_change is only moderately elevated because the originating session may look otherwise ordinary; velocity_24h and amount patterns are usually moderate rather than extreme, since attackers prefer redirections that look like plausible one-off or recurring payments rather than obvious spikes; channel usage tends to be mixed, mirroring whatever channel the legitimate payment flow normally used.
+
+Defensive mitigations discussed in public guidance include beneficiary-change velocity monitoring, confirmation-of-payee style verification before redirected funds settle, mule-account network detection through shared-beneficiary graph analysis, and holding periods on newly added payees for higher-value transfers.
+
+Relevant project use: grounds Agent 1's beneficiary_manipulation hypotheses in elevated beneficiary-change behaviour as the primary signal, distinct from device- or velocity-driven families.
+Safety boundary: defensive, high-level summary only; no mule-recruitment techniques, real beneficiary data, production transactions, live targets, or operational exploit steps are described or provided.

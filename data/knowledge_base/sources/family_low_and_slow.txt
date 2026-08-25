@@ -1,0 +1,11 @@
+Source summary: Low-and-slow fraud typology (project-authored defensive summary)
+Family slug: low_and_slow
+
+Low-and-slow fraud deliberately spreads smaller transactions over a longer time horizon and lower velocity to stay beneath thresholds tuned to catch sudden bursts of activity. Public fraud-defense literature frequently notes that rule-based and machine-learning detectors alike tend to weight rapid, high-value bursts heavily, which creates an incentive for patient attackers to trade speed for stealth, extracting value gradually rather than all at once.
+
+Observable behavioural signals mapped to this project's synthetic schema: amount is intentionally kept lower than the family average, reducing per-transaction risk exposure; velocity_24h is deliberately suppressed relative to other attack families, since rapid repeated activity is the primary signal this pattern avoids; device_change and beneficiary_change are both kept low to further minimize the number of anomalous signals present at any one time; channel usage tends to be ordinary and unremarkable, matching typical legitimate behaviour, which is part of why this family is difficult to detect with threshold-based rules alone.
+
+Defensive mitigations discussed in public guidance include longer-window behavioural baselining (looking at weeks rather than hours), cumulative-exposure monitoring across a rolling window rather than single-transaction thresholds, and anomaly detection that accounts for gradual drift from an account's established norm rather than only sudden spikes.
+
+Relevant project use: grounds Agent 1's low_and_slow hypotheses in suppressed amount and velocity signals as the defining behavioural pattern, testing whether the detector over-relies on burst-style anomalies.
+Safety boundary: defensive, high-level summary only; no evasion tooling, real transaction data, production systems, live targets, or operational exploit steps are described or provided.

@@ -1,0 +1,11 @@
+Source summary: Cross-channel anomaly fraud typology (project-authored defensive summary)
+Family slug: cross_channel_anomaly
+
+Cross-channel anomaly fraud exploits inconsistent risk controls between channels, for example initiating activity through a web or mobile channel while a card-present control is calibrated for physical-terminal risk, or moving between channels within a short window in ways a single-channel model does not expect. Public fraud-defense literature notes that omni-channel payment ecosystems can create blind spots when each channel's detector is tuned independently rather than on a unified, cross-channel view of the account.
+
+Observable behavioural signals mapped to this project's synthetic schema: channel usage is unusually mixed or evenly distributed across web, mobile, and card_present within the same short period, rather than concentrated in one channel as legitimate behaviour typically is; device_change is elevated because switching channels frequently coincides with switching devices or access points; beneficiary_change is also elevated, since cross-channel movement is often paired with payee changes to complicate reconciliation; velocity_24h and amount are both moderately elevated, reflecting an attacker probing multiple channels rather than committing to one high-value attempt.
+
+Defensive mitigations discussed in public guidance include unifying risk scoring across channels into a single account-level view, correlating device and session identifiers across web, mobile, and point-of-sale systems, and flagging rapid channel-switching as an independent risk signal rather than evaluating each channel in isolation.
+
+Relevant project use: grounds Agent 1's cross_channel_anomaly hypotheses in mixed-channel usage combined with elevated device and beneficiary change, distinguishing it from single-channel families.
+Safety boundary: defensive, high-level summary only; no channel-correlation evasion techniques, real account data, production transactions, live targets, or operational exploit steps are described or provided.

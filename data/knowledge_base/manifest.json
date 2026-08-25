@@ -64,5 +64,82 @@
     "license_or_usage_basis": "U.S. government public guidance; use as a cited research summary.",
     "review_status": "approved-summary-only",
     "topics": ["privacy risk", "data minimization", "provenance", "synthetic data"]
+  },
+  {
+    "source_id": "family_account_takeover",
+    "title": "Account takeover fraud typology",
+    "publisher": "Project-authored fraud typology summary",
+    "url": "",
+    "publication_date": "2026-08-26",
+    "retrieved_date": "2026-08-26",
+    "license_or_usage_basis": "Original project defensive summary grounded in public fraud-typology concepts; not scraped from a single restricted source.",
+    "review_status": "approved-internal",
+    "topics": ["account_takeover", "device change", "velocity", "beneficiary change", "credential compromise"]
+  },
+  {
+    "source_id": "family_trusted_device",
+    "title": "Trusted-device abuse fraud typology",
+    "publisher": "Project-authored fraud typology summary",
+    "url": "",
+    "publication_date": "2026-08-26",
+    "retrieved_date": "2026-08-26",
+    "license_or_usage_basis": "Original project defensive summary grounded in public fraud-typology concepts; not scraped from a single restricted source.",
+    "review_status": "approved-internal",
+    "topics": ["trusted_device", "device reputation", "session continuity", "behavioural biometrics"]
+  },
+  {
+    "source_id": "family_beneficiary_manipulation",
+    "title": "Beneficiary manipulation fraud typology",
+    "publisher": "Project-authored fraud typology summary",
+    "url": "",
+    "publication_date": "2026-08-26",
+    "retrieved_date": "2026-08-26",
+    "license_or_usage_basis": "Original project defensive summary grounded in public fraud-typology concepts; not scraped from a single restricted source.",
+    "review_status": "approved-internal",
+    "topics": ["beneficiary_manipulation", "mule accounts", "payee redirection", "confirmation of payee"]
+  },
+  {
+    "source_id": "family_low_and_slow",
+    "title": "Low-and-slow fraud typology",
+    "publisher": "Project-authored fraud typology summary",
+    "url": "",
+    "publication_date": "2026-08-26",
+    "retrieved_date": "2026-08-26",
+    "license_or_usage_basis": "Original project defensive summary grounded in public fraud-typology concepts; not scraped from a single restricted source.",
+    "review_status": "approved-internal",
+    "topics": ["low_and_slow", "velocity suppression", "threshold evasion", "behavioural baselining"]
+  },
+  {
+    "source_id": "family_social_engineering",
+    "title": "Social-engineering fraud typology",
+    "publisher": "Project-authored fraud typology summary",
+    "url": "",
+    "publication_date": "2026-08-26",
+    "retrieved_date": "2026-08-26",
+    "license_or_usage_basis": "Original project defensive summary grounded in public fraud-typology concepts; not scraped from a single restricted source.",
+    "review_status": "approved-internal",
+    "topics": ["social_engineering", "victim-authorized fraud", "scam urgency", "beneficiary change"]
+  },
+  {
+    "source_id": "family_merchant_abuse",
+    "title": "Merchant abuse fraud typology",
+    "publisher": "Project-authored fraud typology summary",
+    "url": "",
+    "publication_date": "2026-08-26",
+    "retrieved_date": "2026-08-26",
+    "license_or_usage_basis": "Original project defensive summary grounded in public fraud-typology concepts; not scraped from a single restricted source.",
+    "review_status": "approved-internal",
+    "topics": ["merchant_abuse", "refund abuse", "merchant velocity", "chargeback ratio"]
+  },
+  {
+    "source_id": "family_cross_channel_anomaly",
+    "title": "Cross-channel anomaly fraud typology",
+    "publisher": "Project-authored fraud typology summary",
+    "url": "",
+    "publication_date": "2026-08-26",
+    "retrieved_date": "2026-08-26",
+    "license_or_usage_basis": "Original project defensive summary grounded in public fraud-typology concepts; not scraped from a single restricted source.",
+    "review_status": "approved-internal",
+    "topics": ["cross_channel_anomaly", "omni-channel", "channel switching", "unified risk scoring"]
   }
 ]

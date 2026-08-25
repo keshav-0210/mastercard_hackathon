@@ -1,0 +1,11 @@
+Source summary: Social-engineering fraud typology (project-authored defensive summary)
+Family slug: social_engineering
+
+Social-engineering fraud persuades a legitimate account holder to authorize a payment themselves, rather than the attacker bypassing authentication directly. Public typologies highlight that generative AI has materially lowered the cost of producing convincing scam scripts, voice clones, and urgent-sounding messages, which increases the volume and realism of scenarios such as impersonation of a bank, a family member in distress, or a trusted service provider requesting an urgent transfer.
+
+Observable behavioural signals mapped to this project's synthetic schema: transactions frequently cluster in evening or late-night hours (hour), consistent with scam calls or messages that pressure a victim to act quickly outside normal business hours; beneficiary_change is elevated because the victim is persuaded to send funds to a new, attacker-controlled payee; amount is typically moderate to moderately high, reflecting a single urgent transfer rather than an extreme outlier; device_change is only moderately elevated since the legitimate owner is usually the one authorizing the transaction from their own device; channel usage tends toward mobile, matching how these scams are typically initiated and completed.
+
+Defensive mitigations discussed in public guidance include friction and warning prompts for first-time beneficiaries combined with urgency-language cues, delayed settlement windows for newly added high-risk payees, and customer education campaigns paired with in-app scam-pattern warnings at the moment of payment.
+
+Relevant project use: grounds Agent 1's social_engineering hypotheses in the evening-hour timing and beneficiary-change pattern distinctive of victim-authorized fraud.
+Safety boundary: defensive, high-level summary only; no scam scripting, persuasion tactics, real victim data, production transactions, live targets, or operational exploit steps are described or provided.

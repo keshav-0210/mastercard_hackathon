@@ -14,7 +14,6 @@ if ROOT not in sys.path:
 os.chdir(ROOT)
 
 from mastercard_defence.loop import ClosedLoop, load_config
-from adaptive.generate_family_charts import build_charts
 
 
 def to_jsonable(value):
@@ -25,20 +24,6 @@ def to_jsonable(value):
     if isinstance(value, (list, tuple)):
         return [to_jsonable(item) for item in value]
     return value
-
-
-def build_family_analysis(suite: dict) -> list[dict]:
-    rows = []
-    for run in suite['by_seed']:
-        for result in run['results']:
-            for family, metrics in result['detection'].get('by_attack_family', {}).items():
-                rows.append({
-                    'seed': run['seed'],
-                    'round': result['round'],
-                    'attack_family': family,
-                    **metrics,
-                })
-    return rows
 
 
 class Tee:
@@ -74,14 +59,17 @@ def main(seeds: int = 1) -> None:
                 'rounds': suite['rounds'],
                 'families_per_run': suite['families_per_run'],
                 'summary': suite['summary'],
-                'family_analysis': build_family_analysis(suite),
+                'family_analysis': suite.get('family_analysis', []),
                 'round_metrics': [
                     {
                         'seed': run['seed'],
                         'round': result['round'],
                         'attack_family': result['specification'].attack_family,
                         'family_decision': result['family_decision'],
-                        'all_family_metrics': result['detection'].get('all_family_metrics', {}),
+                        'detection': result['detection'],
+                        'fidelity': result['fidelity'],
+                        'diversity': result['diversity'],
+                        'novelty': result['novelty'],
                     }
                     for run in suite['by_seed']
                     for result in run['results']
@@ -90,7 +78,6 @@ def main(seeds: int = 1) -> None:
             }
             artifact_path = artifacts_path / f'robustness_results_{run_stamp}.json'
             artifact_path.write_text(json.dumps(to_jsonable(artifact), indent=2), encoding='utf-8')
-            build_charts(artifact_path, Path(ROOT) / 'adaptive' / 'charts')
             print(json.dumps({key: artifact[key] for key in ('run_timestamp_utc', 'seed_count', 'rounds', 'families_per_run', 'summary')}, indent=2))
             print(f'RESULTS_SAVED {artifact_path}')
             print(f'LOG_SAVED {log_path}')

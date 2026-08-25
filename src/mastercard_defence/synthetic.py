@@ -16,18 +16,7 @@ ALLOWED_FAMILIES = (
     "cross_channel_anomaly",
 )
 
-ADAPTIVE_VARIANTS = (
-    "trusted_device_normal_velocity",
-    "low_and_slow_common_channel",
-    "beneficiary_manipulation_moderate_amount",
-)
-
-DISCOVERY_CANDIDATES = (
-    "trusted_device_low_and_slow",
-    "social_engineering_beneficiary_manipulation",
-)
-
-GENERATABLE_FAMILIES = ALLOWED_FAMILIES + ADAPTIVE_VARIANTS + DISCOVERY_CANDIDATES
+GENERATABLE_FAMILIES = ALLOWED_FAMILIES
 
 
 def build_round_family_plan(rounds: int, seed: int = 0) -> list[str]:
@@ -57,6 +46,17 @@ def make_reference_transactions(size: int, seed: int) -> pd.DataFrame:
             "is_fraud": 0,
         }
     )
+
+
+def fraud_rate_for(fraud_rows: int, legitimate_rows: int) -> float:
+    total = legitimate_rows + fraud_rows
+    return fraud_rows / total if total else 0.0
+
+
+def legitimate_rows_for_fraud_rate(fraud_rows: int, target_rate: float) -> int:
+    if fraud_rows < 0 or not 0.0 < target_rate < 1.0:
+        raise ValueError("fraud_rows must be non-negative and target_rate must be between 0 and 1")
+    return int(np.ceil(fraud_rows * (1.0 - target_rate) / target_rate))
 
 
 def _family_profile(family: str) -> dict[str, float | tuple[float, ...]]:
@@ -264,3 +264,40 @@ def summarize_robustness(results: list[dict]) -> dict:
             "max": round(float(arr.max()), 4),
         }
     return summary
+
+
+def summarize_family_performance(results: list[dict]) -> list[dict]:
+    family_values: dict[str, dict[str, list[float] | int]] = {}
+    for result in results:
+        detection = result.get("detection", {})
+        by_family = detection.get("by_attack_family", {}) or {}
+        if not by_family:
+            continue
+        for family, metrics in by_family.items():
+            entry = family_values.setdefault(
+                family,
+                {
+                    "attack_family": family,
+                    "round_count": 0,
+                    "support_total": 0,
+                    "precision": [],
+                    "recall": [],
+                    "f1": [],
+                    "roc_auc": [],
+                },
+            )
+            entry["round_count"] = int(entry["round_count"]) + 1
+            entry["support_total"] = int(entry["support_total"]) + int(metrics.get("support", 0))
+            for metric in ("precision", "recall", "f1", "roc_auc"):
+                value = metrics.get(metric)
+                if value is not None:
+                    entry[metric].append(float(value))
+
+    rows: list[dict] = []
+    for family, entry in sorted(family_values.items()):
+        row: dict[str, float | int | str] = {"attack_family": family, "round_count": int(entry["round_count"]), "support_total": int(entry["support_total"])}
+        for metric in ("precision", "recall", "f1", "roc_auc"):
+            values = entry[metric]
+            row[metric] = round(float(np.mean(values)), 4) if values else 0.0
+        rows.append(row)
+    return rows

@@ -9,15 +9,15 @@
 The system should use a **hybrid family policy**:
 
 - A stable approved taxonomy provides repeatable benchmark categories.
-- Detector weaknesses drive the next attack family or variant.
+- Detector weaknesses drive the next attack family.
 - Agent 1 recommends the next direction using evidence and Attack Memory.
 - Agent 2 converts that direction into structured constraints.
 - The generator creates valid synthetic transactions.
-- New patterns are treated as candidates before becoming official families.
+- No new families are created; all rounds remain within the approved taxonomy.
 
 The base documents do not need to change every round. They provide general payment-security knowledge. The experiment memory provides what the current detector is failing to recognize.
 
-## 2. The Three Family Levels
+## 2. The Approved Family Set
 
 ### Approved benchmark families
 
@@ -33,24 +33,7 @@ These are stable categories used for comparable experiments:
 
 Each family has a definition, observable features, generator support, and evaluation rules. This is taxonomy version 1, not a claim that all possible attacks are known.
 
-### Adaptive variants
-
-These refine an approved family after a weakness is observed:
-
-- trusted_device_normal_velocity
-- low_and_slow_common_channel
-- beneficiary_manipulation_moderate_amount
-
-Variants are valid because they remain connected to a known parent family and the existing transaction schema.
-
-### Discovery candidates
-
-These are new combinations proposed by Agent 1:
-
-- trusted_device_low_and_slow
-- social_engineering_beneficiary_manipulation
-
-They are not immediately promoted. They first pass novelty, realism, schema, generator, and repeated-seed checks.
+Agent 1 may change the feature-level direction within one of these families, but it may not introduce variants, composites, or discovery labels.
 
 ## 3. The Round-by-Round Flow
 
@@ -101,7 +84,7 @@ Agent 1 reads the weakness and recommends:
 {
   "recommended_family": "trusted_device",
   "reason": "The detector relies too heavily on device novelty.",
-  "variant": "trusted_device_normal_velocity"
+        "recommended_family": "trusted_device"
 }
 ```
 
@@ -123,21 +106,9 @@ Suppose the next weakness says:
 
 Agent 1 recommends `low_and_slow`. Agent 2 specifies modest amounts, low velocity, normal channels, and occasional beneficiary changes.
 
-### Round 4: discovery candidate
+### Round 4: approved-family continuation
 
-Suppose the detector now misses attacks that combine a familiar device with low velocity. Agent 1 proposes:
-
-```text
-trusted_device_low_and_slow
-```
-
-The controller records it as a candidate with parent families:
-
-```text
-trusted_device + low_and_slow
-```
-
-It becomes an official family only after validation across multiple seeds and rounds.
+Suppose the detector still misses attacks that combine a familiar device with low velocity. Agent 1 continues with the approved `trusted_device` or `low_and_slow` family and changes the structured feature constraints; it does not create a composite family.
 
 ## 5. How Realism Is Protected
 
@@ -159,12 +130,11 @@ The final family scheduler should follow this order:
 
 1. Start with a seeded approved family so the experiment is reproducible.
 2. Use Agent 3's latest weakness to guide the next recommendation.
-3. Let Agent 1 propose an approved family, adaptive variant, or discovery candidate.
+3. Let Agent 1 propose only one of the seven approved families.
 4. Validate the recommendation against the taxonomy and recent history.
 5. Let Agent 2 create constraints from the recommendation and its parent profile.
 6. Generate and validate synthetic rows.
-7. Promote discovery candidates only after repeated evidence.
-8. Keep the taxonomy versioned: `taxonomy_v1`, `taxonomy_v2`, and so on.
+7. Keep the taxonomy versioned while retaining the same seven-family allowlist.
 
 ## Final Architecture
 

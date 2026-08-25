@@ -1,0 +1,11 @@
+Source summary: Account takeover fraud typology (project-authored defensive summary)
+Family slug: account_takeover
+
+Account takeover happens when a fraudster gains control of a legitimate customer's payment credentials or session, then transacts as if they were the genuine account holder. Public industry typologies describe this as one of the most common GenAI-amplified fraud vectors because large language models and credential-stuffing tooling can automate password guessing, phishing-page generation, and one-time-passcode social engineering at scale, letting an attacker compromise many accounts quickly and then spend from each before the owner notices.
+
+Observable behavioural signals commonly associated with account takeover, mapped to this project's synthetic schema: a change in the trusted device fingerprint (device_change) frequently co-occurs with the fraudulent session because the attacker is transacting from new hardware; transaction velocity (velocity_24h) often rises sharply as the attacker attempts to extract value before the legitimate owner regains control or the issuer intervenes; beneficiary_change is moderately elevated because the attacker frequently adds a new payee or shipping destination; amounts tend to skew higher than the account's typical baseline as the attacker maximizes value per session; channel usage often shifts toward remote/mobile or web channels rather than card-present, since the attacker rarely has the physical card.
+
+Defensive mitigations discussed in public payment-security guidance include step-up authentication (for example 3-D Secure challenges) triggered by device or behavioural anomalies, device-binding and reputation scoring, rate limiting on login and payment attempts, and monitoring for rapid beneficiary or contact-detail changes immediately following a login from an unrecognized device.
+
+Relevant project use: grounds Agent 1's account_takeover hypotheses in observable device-change, velocity, and beneficiary-change signals rather than arbitrary values.
+Safety boundary: defensive, high-level summary only; no credential-stuffing tooling, phishing kits, real account data, production transactions, live targets, or operational exploit steps are described or provided.

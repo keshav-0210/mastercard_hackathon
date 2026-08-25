@@ -18,5 +18,6 @@ pipeline:
   rounds: 50
   synthetic_transactions: 400
   max_generated_attacks: 80
+  fraud_rate: 0.02
   rag_top_k: 4
   detector_train_fraction: 0.6

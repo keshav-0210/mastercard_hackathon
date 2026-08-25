@@ -2,31 +2,12 @@ from __future__ import annotations
 
 import json
 
-from .contracts import AttackHypothesis, AttackSpecification, EvidenceReference, FamilyRecommendation, WeaknessReport
+from .contracts import APPROVED_FAMILIES, AttackHypothesis, AttackSpecification, EvidenceReference, FamilyRecommendation, WeaknessReport
 from .llm import SharedLocalLLM
 
-ATTACK_FAMILIES = (
-    "account_takeover",
-    "trusted_device",
-    "beneficiary_manipulation",
-    "low_and_slow",
-    "social_engineering",
-    "merchant_abuse",
-    "cross_channel_anomaly",
-)
+ATTACK_FAMILIES = APPROVED_FAMILIES
 
-ADAPTIVE_VARIANTS = (
-    "trusted_device_normal_velocity",
-    "low_and_slow_common_channel",
-    "beneficiary_manipulation_moderate_amount",
-)
-
-DISCOVERY_CANDIDATES = (
-    "trusted_device_low_and_slow",
-    "social_engineering_beneficiary_manipulation",
-)
-
-GENERATABLE_FAMILIES = ATTACK_FAMILIES + ADAPTIVE_VARIANTS + DISCOVERY_CANDIDATES
+GENERATABLE_FAMILIES = ATTACK_FAMILIES
 
 
 class HeuristicAgents:
@@ -65,21 +46,26 @@ class HeuristicAgents:
         )
 
     def recommend_family(self, weakness: WeaknessReport, candidates: tuple[str, ...], memory: list[str]) -> FamilyRecommendation:
-        weakness_text = " ".join(weakness.observed_weaknesses + [weakness.recommended_next_attack_direction]).lower()
+        weakness_text = " ".join(weakness.observed_weaknesses + weakness.recommended_next_attack_directions).lower()
         keyword_targets = (("device", "trusted_device"), ("velocity", "low_and_slow"), ("beneficiary", "beneficiary_manipulation"), ("channel", "cross_channel_anomaly"), ("merchant", "merchant_abuse"), ("social", "social_engineering"), ("account", "account_takeover"))
         family = next((target for keyword, target in keyword_targets if keyword in weakness_text and target in candidates), candidates[0])
         return FamilyRecommendation(recommended_family=family, reason="Selected the approved family most directly related to the latest detector weakness.", target_weakness=weakness_text, confidence=0.75)
 
-    def analyze(self, round_id: int, detection: dict, fidelity: dict) -> WeaknessReport:
-        weakness = "Detector should be tested against attacks with low velocity." if detection.get("recall", 0) > 0.7 else "Detector recall is weak on the current synthetic attack family."
-        family_metrics = detection.get("all_family_metrics", detection.get("by_attack_family", {}))
-        weakness_families = [family for family, metrics in sorted(family_metrics.items(), key=lambda item: item[1].get("recall", 0.0))[:2]]
+    def analyze(self, round_id: int, detection: dict, fidelity: dict, detector_version: str | None = None, hard_sample_patterns: list[str] | None = None) -> WeaknessReport:
+        weak_recall = detection.get("recall", 0) < 0.7
+        weakness = "Detector should be tested against attacks with low velocity." if not weak_recall else "Detector recall is weak on the current synthetic attack family."
+        family_metrics = detection.get("by_attack_family", {})
+        affected_attack_families = [family for family, metrics in sorted(family_metrics.items(), key=lambda item: item[1].get("recall", 0.0))[:2]]
+        patterns = hard_sample_patterns if hard_sample_patterns is not None else ([f"Low recall concentrated in {', '.join(affected_attack_families)}"] if affected_attack_families else [])
         return WeaknessReport(
-            round_id=round_id, observed_weaknesses=[weakness],
-            weakness_families=weakness_families,
+            round_id=round_id, detector_version=detector_version,
+            analysis_summary=f"Detector f1={detection.get('f1', 0):.3f}, recall={detection.get('recall', 0):.3f} on this round's evaluation set.",
+            observed_weaknesses=[weakness],
+            hard_sample_patterns=patterns,
+            affected_attack_families=affected_attack_families,
             supporting_evidence=[f"F1={detection.get('f1', 0):.3f}", f"fidelity={fidelity.get('behavioural_plausibility', 0):.3f}"],
-            priority="high" if detection.get("recall", 0) < 0.7 else "medium",
-            recommended_next_attack_direction="Test trusted-device and low-and-slow variants with reduced velocity signals.",
+            priority="high" if weak_recall else "medium",
+            recommended_next_attack_directions=["Test trusted-device and low-and-slow variants with reduced velocity signals."],
             confidence=0.65,
         )
 
@@ -131,8 +117,8 @@ class QwenAgents:
             json.dumps({
                 "weakness": {
                     "observed_weaknesses": weakness.observed_weaknesses,
-                    "weakness_families": weakness.weakness_families,
-                    "recommended_next_attack_direction": weakness.recommended_next_attack_direction,
+                    "affected_attack_families": weakness.affected_attack_families,
+                    "recommended_next_attack_directions": weakness.recommended_next_attack_directions,
                     "priority": weakness.priority,
                 },
                 "candidates": candidates,
@@ -146,25 +132,30 @@ class QwenAgents:
         if isinstance(confidence, str):
             confidence = {"low": 0.35, "medium": 0.6, "high": 0.85}.get(confidence.lower(), 0.5)
         payload["confidence"] = min(1.0, max(0.0, float(confidence)))
-        if payload.get("recommendation_type") not in {"approved_family", "adaptive_variant", "discovery_candidate"}:
-            payload["recommendation_type"] = "approved_family"
+        payload["recommendation_type"] = "approved_family"
         return FamilyRecommendation.model_validate(payload)
 
-    def analyze(self, round_id: int, detection: dict, fidelity: dict) -> WeaknessReport:
+    def analyze(self, round_id: int, detection: dict, fidelity: dict, detector_version: str | None = None, hard_sample_patterns: list[str] | None = None) -> WeaknessReport:
         payload = self.llm.complete_json(
-            """You are Agent 3, the Security Analyst. Analyze detector and fidelity evidence from an offline synthetic experiment. Return only JSON with keys: round_id, observed_weaknesses, weakness_families, supporting_evidence, priority, recommended_next_attack_direction, confidence. weakness_families must list the attack family labels whose metrics show the weakness. Your report will be stored in Attack Memory and consumed by Agent 1 in the next round.""",
+            """You are Agent 3, the Security Analyst. Analyze detector and fidelity evidence from an offline synthetic experiment. Return only JSON with keys: analysis_summary, observed_weaknesses, hard_sample_patterns, affected_attack_families, supporting_evidence, priority, recommended_next_attack_directions, confidence. affected_attack_families must list the attack family labels whose metrics show the weakness. hard_sample_patterns must list short descriptions of recurring hard-to-classify patterns; do not hard-code a single fixed weakness category. recommended_next_attack_directions must be a list of distinct next directions. Your report will be stored in Attack Memory and consumed by Agent 1 in the next round, never directly by Agent 2.""",
             json.dumps({"round_id": round_id, "detection": detection, "fidelity": fidelity}, ensure_ascii=True),
         )
         payload["round_id"] = round_id
+        payload["detector_version"] = detector_version
+        payload["analysis_summary"] = str(payload.get("analysis_summary", ""))
         weaknesses = payload.get("observed_weaknesses", [])
         payload["observed_weaknesses"] = [weaknesses] if isinstance(weaknesses, str) else weaknesses
-        payload["weakness_families"] = payload.get("weakness_families", []) or []
-        if isinstance(payload["weakness_families"], str):
-            payload["weakness_families"] = [payload["weakness_families"]]
-        payload["weakness_families"] = [
-            family for family in payload["weakness_families"]
+        patterns = hard_sample_patterns if hard_sample_patterns is not None else (payload.get("hard_sample_patterns", []) or [])
+        payload["hard_sample_patterns"] = [patterns] if isinstance(patterns, str) else patterns
+        payload["affected_attack_families"] = payload.get("affected_attack_families", []) or []
+        if isinstance(payload["affected_attack_families"], str):
+            payload["affected_attack_families"] = [payload["affected_attack_families"]]
+        payload["affected_attack_families"] = [
+            family for family in payload["affected_attack_families"]
             if family in GENERATABLE_FAMILIES
         ]
+        directions = payload.get("recommended_next_attack_directions", [])
+        payload["recommended_next_attack_directions"] = [directions] if isinstance(directions, str) else directions
         payload["supporting_evidence"] = [
             f"Detection metrics: {json.dumps(detection, ensure_ascii=True)}",
             f"Fidelity metrics: {json.dumps(fidelity, ensure_ascii=True)}",

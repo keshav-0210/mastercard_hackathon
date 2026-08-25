@@ -7,12 +7,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .agents import ADAPTIVE_VARIANTS, ATTACK_FAMILIES, DISCOVERY_CANDIDATES, GENERATABLE_FAMILIES, HeuristicAgents, QwenAgents
-from .contracts import MemoryRecord
+from .agents import ATTACK_FAMILIES, HeuristicAgents, QwenAgents
+from .contracts import RoundRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
 from .rag import LocalKnowledgeBase
-from .synthetic import build_round_family_plan, evaluate_diversity, evaluate_fidelity, evaluate_novelty, generate_attacks, make_reference_transactions, summarize_robustness
+from .synthetic import build_round_family_plan, evaluate_diversity, evaluate_fidelity, evaluate_novelty, fraud_rate_for, generate_attacks, legitimate_rows_for_fraud_rate, make_reference_transactions, summarize_family_performance, summarize_robustness
 
 
 class ClosedLoop:
@@ -26,16 +26,48 @@ class ClosedLoop:
             self.agents = HeuristicAgents()
         self.knowledge = LocalKnowledgeBase(config["paths"]["knowledge_base"])
         self.memory = AttackMemory(config["paths"]["memory_db"])
+        self.replay_buffer = pd.DataFrame()
+        self.detector_version = 1
+        self.detector_retrain_every = int(self.config.get("detector_retrain_every", 3))
+        self.max_replay_examples = int(self.config.get("max_replay_examples", 200))
+
+    def _record_hard_examples(self, new_examples: pd.DataFrame | None) -> None:
+        if new_examples is None or new_examples.empty:
+            return
+        columns = ["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "is_fraud", "attack_family"]
+        for column in columns:
+            if column not in new_examples.columns:
+                new_examples = new_examples.copy()
+                new_examples[column] = 0 if column != "channel" else "web"
+                if column == "is_fraud":
+                    new_examples[column] = 1
+        combined = pd.concat([self.replay_buffer, new_examples], ignore_index=True)
+        combined = combined[columns].drop_duplicates().reset_index(drop=True)
+        if len(combined) > self.max_replay_examples:
+            combined = combined.tail(self.max_replay_examples).reset_index(drop=True)
+        self.replay_buffer = combined
+
+    def _maybe_retrain_detector(self, round_id: int) -> bool:
+        if self.replay_buffer.empty:
+            return False
+        if round_id % self.detector_retrain_every == 0:
+            self.detector_version += 1
+            return True
+        return False
 
     def run(self, rounds: int | None = None, family_plan: list[str] | None = None, seed: int | None = None, attack_generator=None, detector_mode: str = "static", hard_examples: pd.DataFrame | None = None) -> list[dict]:
         rounds = rounds or self.config["pipeline"]["rounds"]
         seed = self.config["seed"] if seed is None else seed
         family_plan = family_plan or build_round_family_plan(rounds, seed)
+        target_fraud_rate = float(self.config["pipeline"].get("fraud_rate", 0.02))
+        if not 0.01 <= target_fraud_rate <= 0.03:
+            raise ValueError("pipeline.fraud_rate must be between 0.01 and 0.03")
+        attack_count = self.config["pipeline"]["max_generated_attacks"]
+        train_attack_count = int(attack_count * self.config["pipeline"].get("detector_train_fraction", 0.6))
         reference = make_reference_transactions(self.config["pipeline"]["synthetic_transactions"], seed)
-        holdout = make_reference_transactions(max(80, self.config["pipeline"]["synthetic_transactions"] // 4), seed + 1)
-        train_reference = reference.sample(frac=0.8, random_state=seed)
-        fidelity_reference = reference.drop(train_reference.index).reset_index(drop=True)
-        train_reference = train_reference.reset_index(drop=True)
+        train_reference = make_reference_transactions(legitimate_rows_for_fraud_rate(train_attack_count, target_fraud_rate), seed + 2)
+        holdout = make_reference_transactions(legitimate_rows_for_fraud_rate(attack_count, target_fraud_rate), seed + 1)
+        fidelity_reference = reference.reset_index(drop=True)
         results = []
         print(f"[seed={seed}] starting {rounds}-round run with family plan: {family_plan}")
         previous_weakness = None
@@ -44,12 +76,8 @@ class ClosedLoop:
         sampler = np.random.default_rng(seed)
         for round_id in range(1, rounds + 1):
             print(f"[seed={seed}] round {round_id}/{rounds} starting")
-            memory_context = self.memory.recent_context()
+            memory_context = self.memory.recent_context(seed=seed)
             prior_direction = " ".join(memory_context[-4:])
-            query = "payment fraud attack detector weakness new direction public evidence"
-            if prior_direction:
-                query += " " + prior_direction[:500]
-            evidence = self.knowledge.retrieve(query, self.config["pipeline"]["rag_top_k"])
             prior_families = tuple(family for family in ATTACK_FAMILIES if family in " ".join(memory_context).lower())
             fallback_family = family_plan[min(round_id - 1, len(family_plan) - 1)]
             if previous_weakness is None:
@@ -69,18 +97,27 @@ class ClosedLoop:
                     "sampling_weights": dict(zip(candidates, weights)),
                     "sampled_family": chosen_family,
                 }
+            # Ground retrieval in the chosen family so Agent 1 receives family-specific evidence, not generic background.
+            family_terms = chosen_family.replace("_", " ")
+            query = f"{family_terms} {chosen_family} payment fraud attack detector weakness new direction public evidence"
+            if prior_direction:
+                query += " " + prior_direction[:500]
+            evidence = self.knowledge.retrieve_for_family(chosen_family, query, self.config["pipeline"]["rag_top_k"])
+            decision_memory = self.memory.relevant_context(seed=seed, fraud_family=chosen_family, limit=12)
+            memory_context = decision_memory or memory_context
             decisions.append({"round": round_id, "family": chosen_family, "recommendation": recommendation})
             allowed_families = (chosen_family,) if chosen_family not in prior_families else tuple(family for family in ATTACK_FAMILIES if family not in prior_families) or ATTACK_FAMILIES
             agent_start = time.perf_counter()
             hypothesis = self.agents.research(round_id, evidence, memory_context, query, allowed_families)
             print(f"[seed={seed}] round {round_id} Agent1.research complete in {time.perf_counter() - agent_start:.2f}s")
+            # allowed_families may be broader than chosen_family, so the agent's own attack_id can drift; keep it consistent.
             hypothesis.attack_family = chosen_family
+            hypothesis.attack_id = f"round-{round_id}-{chosen_family}"
             novelty = evaluate_novelty(hypothesis, memory_context)
             agent_start = time.perf_counter()
             specification = self.agents.specify(hypothesis)
             print(f"[seed={seed}] round {round_id} Agent2.specify complete in {time.perf_counter() - agent_start:.2f}s")
             specification.attack_family = chosen_family
-            attack_count = self.config["pipeline"]["max_generated_attacks"]
             generation_start = time.perf_counter()
             if attack_generator is None:
                 train_attacks = generate_attacks(specification, attack_count, round_id, seed + round_id)
@@ -94,53 +131,85 @@ class ClosedLoop:
             fidelity = evaluate_fidelity(fidelity_reference, unseen_attacks)
             diversity = evaluate_diversity(unseen_attacks)
             training_parts = [train_reference, detector_attacks]
-            if detector_mode == "continual" and hard_examples is not None and not hard_examples.empty:
-                training_parts.append(hard_examples)
+            if detector_mode == "continual":
+                replay_examples = self.replay_buffer.copy()
+                if hard_examples is not None and not hard_examples.empty:
+                    replay_examples = pd.concat([replay_examples, hard_examples], ignore_index=True)
+                if not replay_examples.empty:
+                    training_parts.append(replay_examples)
             training = pd.concat(training_parts, ignore_index=True)
+            fraud_rows = int(training["is_fraud"].sum())
+            legitimate_rows = len(training) - fraud_rows
+            required_legitimate_rows = legitimate_rows_for_fraud_rate(fraud_rows, target_fraud_rate)
+            if legitimate_rows < required_legitimate_rows:
+                additional_legitimate = make_reference_transactions(
+                    required_legitimate_rows - legitimate_rows,
+                    seed + 3000 + round_id,
+                )
+                training = pd.concat([training, additional_legitimate], ignore_index=True)
+            training_fraud_rate = fraud_rate_for(int(training["is_fraud"].sum()), len(training) - int(training["is_fraud"].sum()))
             detector = FraudDetector()
             detector.fit(training)
             validation_data = pd.concat([holdout.assign(is_fraud=0), unseen_attacks], ignore_index=True)
             validation_data["attack_family"] = validation_data.get("attack_family", specification.attack_family)
+            validation_fraud_rate = fraud_rate_for(int(validation_data["is_fraud"].sum()), len(validation_data) - int(validation_data["is_fraud"].sum()))
             evaluation = detector.evaluate(validation_data)
             evaluation["evaluation_protocol"] = "unseen_attack_rows_and_legitimate_holdout"
             evaluation["train_attack_rows"] = len(detector_attacks)
             evaluation["unseen_attack_rows"] = len(unseen_attacks)
             evaluation["train_reference_rows"] = len(train_reference)
             evaluation["validation_legitimate_rows"] = len(holdout)
-            probe_start = time.perf_counter()
-            all_family_metrics = self._evaluate_all_families(
-                detector,
-                holdout,
-                fidelity_reference,
-                specification,
-                unseen_attacks,
-                attack_generator,
-                attack_count,
-                round_id,
-                seed,
-                hypothesis,
-                memory_context,
-            )
-            print(f"[seed={seed}] round {round_id}/{rounds} all-family probes complete in {time.perf_counter() - probe_start:.2f}s")
-            evaluation["all_family_metrics"] = all_family_metrics
-            evaluation["by_attack_family"] = {
-                family: {key: value for key, value in values.items() if key in {"precision", "recall", "f1", "roc_auc", "support"}}
-                for family, values in all_family_metrics.items()
-            }
-            if detector_mode == "continual" and hard_examples is not None:
+            evaluation["training_fraud_rate"] = round(training_fraud_rate, 4)
+            evaluation["validation_fraud_rate"] = round(validation_fraud_rate, 4)
+            if detector_mode == "continual":
                 predictions = detector.predict(unseen_attacks)
                 missed = unseen_attacks.loc[predictions == 0].copy()
-                hard_examples = missed if hard_examples.empty else pd.concat([hard_examples, missed], ignore_index=True).drop_duplicates()
-            evaluation["hard_examples_replayed"] = int(len(hard_examples)) if hard_examples is not None else 0
+                if hard_examples is None:
+                    hard_examples = pd.DataFrame(columns=["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "is_fraud", "attack_family"])
+                if not missed.empty:
+                    hard_examples = missed if hard_examples.empty else pd.concat([hard_examples, missed], ignore_index=True).drop_duplicates()
+                self._record_hard_examples(hard_examples)
+                self._maybe_retrain_detector(round_id)
+            evaluation["hard_examples_replayed"] = int(len(self.replay_buffer)) if detector_mode == "continual" else int(len(hard_examples)) if hard_examples is not None else 0
             agent_start = time.perf_counter()
             weakness = self.agents.analyze(round_id, evaluation, fidelity)
             print(f"[seed={seed}] round {round_id} Agent3.analyze complete in {time.perf_counter() - agent_start:.2f}s")
             previous_weakness = weakness
             weakness_history.append(weakness)
-            self.memory.add(MemoryRecord(round_id=round_id, record_type="hypothesis", content=hypothesis.model_dump()))
-            self.memory.add(MemoryRecord(round_id=round_id, record_type="specification", content=specification.model_dump()))
-            self.memory.add(MemoryRecord(round_id=round_id, record_type="evaluation", content={"detection": evaluation, "fidelity": fidelity, "diversity": diversity, "novelty": novelty}))
-            self.memory.add(MemoryRecord(round_id=round_id, record_type="weakness", content=weakness.model_dump()))
+            generator_metadata = {
+                "backend": "ctgan" if attack_generator is not None else "procedural",
+                "epochs": self.config.get("generator_epochs") if attack_generator is not None else None,
+                "seed": seed + round_id,
+            }
+            generation_stats = {
+                "train_attack_rows": len(detector_attacks),
+                "unseen_attack_rows": len(unseen_attacks),
+                "train_reference_rows": len(train_reference),
+                "validation_legitimate_rows": len(holdout),
+                "training_fraud_rate": evaluation["training_fraud_rate"],
+                "validation_fraud_rate": evaluation["validation_fraud_rate"],
+                "diversity": diversity,
+                "novelty": novelty,
+            }
+            self.memory.add_round(
+                RoundRecord(
+                    seed=seed,
+                    round_id=round_id,
+                    attack_id=hypothesis.attack_id,
+                    fraud_family=chosen_family,
+                    detector_version=f"v{self.detector_version}",
+                    attack_hypothesis=hypothesis.model_dump(),
+                    attack_specification=specification.model_dump(),
+                    generator_metadata=generator_metadata,
+                    generation_stats=generation_stats,
+                    fidelity_evaluation=fidelity,
+                    detector_evaluation=evaluation,
+                    hard_sample_summary={"patterns": weakness.hard_sample_patterns},
+                    agent3_analysis=weakness.model_dump(),
+                    identified_weaknesses=weakness.observed_weaknesses,
+                    recommended_next_attack_directions=weakness.recommended_next_attack_directions,
+                )
+            )
             results.append({"round": round_id, "research_query": query, "hypothesis": hypothesis, "specification": specification, "fidelity": fidelity, "diversity": diversity, "novelty": novelty, "detection": evaluation, "weakness": weakness, "family_decision": recommendation, "detector_mode": detector_mode})
             print(f"[seed={seed}] round {round_id}/{rounds} complete | family={chosen_family} | f1={evaluation.get('f1', 0.0):.4f} | novelty={novelty.get('novelty_score', 0.0):.4f}")
         print(f"[seed={seed}] run complete. Total rounds: {len(results)}")
@@ -148,79 +217,20 @@ class ClosedLoop:
 
     @staticmethod
     def _adaptive_candidates(weakness, history) -> tuple[str, ...]:
-        weakness_reports = history + [weakness]
-        family_counts = {}
-        for report in weakness_reports:
-            for family in set(report.weakness_families):
-                family_counts[family] = family_counts.get(family, 0) + 1
-        weakness_families = set(family_counts)
-        candidates = list(ATTACK_FAMILIES)
-        if any(parent in weakness_families for parent in ("trusted_device", "low_and_slow", "beneficiary_manipulation")):
-            candidates.extend(variant for variant in ADAPTIVE_VARIANTS if variant not in candidates)
-        if all(family_counts.get(family, 0) >= 2 for family in ("trusted_device", "low_and_slow")):
-            candidates.append("trusted_device_low_and_slow")
-        if all(family_counts.get(family, 0) >= 2 for family in ("social_engineering", "beneficiary_manipulation")):
-            candidates.append("social_engineering_beneficiary_manipulation")
-        return tuple(dict.fromkeys(candidates))
+        return ATTACK_FAMILIES
 
     @staticmethod
     def _family_sampling_weights(candidates, weakness, agent_family: str) -> list[float]:
         confidence = float(weakness.confidence)
-        weakness_families = set(weakness.weakness_families)
+        affected_attack_families = set(weakness.affected_attack_families)
         weights = []
         for family in candidates:
-            parent_match = family in weakness_families or any(parent in weakness_families for parent in ATTACK_FAMILIES if parent in family)
+            parent_match = family in affected_attack_families or any(parent in affected_attack_families for parent in ATTACK_FAMILIES if parent in family)
             weight = 1.0 + (8.0 * confidence if parent_match else 0.0)
             if family == agent_family:
                 weight *= 1.25
             weights.append(round(weight, 4))
         return weights
-
-    def _evaluate_all_families(self, detector, holdout, fidelity_reference, chosen_specification, chosen_attacks, attack_generator, attack_count, round_id, seed, hypothesis, memory_context):
-        metrics = {}
-        probe_size = min(attack_count, self.config.get("family_probe_size", 20))
-        probe_backend = str(self.config.get("family_probe_backend", "procedural")).lower()
-        total_families = len(GENERATABLE_FAMILIES)
-        print(f"[seed={seed}] round {round_id} family probes backend={probe_backend} size={probe_size}")
-        for index, family in enumerate(GENERATABLE_FAMILIES, start=1):
-            family_start = time.perf_counter()
-            if family == chosen_specification.attack_family:
-                attacks = chosen_attacks
-            else:
-                probe_specification = chosen_specification.model_copy(update={
-                    "attack_id": f"round-{round_id}-probe-{family}",
-                    "attack_family": family,
-                })
-                if attack_generator is None or probe_backend == "procedural":
-                    attacks = generate_attacks(probe_specification, probe_size, round_id, seed + 2000 + index)
-                else:
-                    try:
-                        attacks = attack_generator.generate(probe_specification, probe_size, round_id, seed + 2000 + index, max_attempts=5, allow_partial=True)
-                    except RuntimeError as exc:
-                        print(f"[seed={seed}] round {round_id} probe {index}/{total_families} family={family!r} CTGAN failed ({exc}); using procedural fallback")
-                        attacks = generate_attacks(probe_specification, probe_size, round_id, seed + 2000 + index)
-            print(f"[seed={seed}] round {round_id} probe {index}/{total_families} family={family} rows={len(attacks)} elapsed={time.perf_counter() - family_start:.2f}s")
-            validation = pd.concat([holdout.assign(is_fraud=0), attacks], ignore_index=True)
-            validation["attack_family"] = validation["attack_family"].fillna(family)
-            detection = detector.evaluate(validation)
-            diversity = evaluate_diversity(attacks)
-            fidelity = evaluate_fidelity(fidelity_reference, attacks)
-            family_hypothesis = hypothesis.model_copy(update={"attack_family": family})
-            novelty = evaluate_novelty(family_hypothesis, memory_context)
-            metrics[family] = {
-                "precision": detection["precision"],
-                "recall": detection["recall"],
-                "f1": detection["f1"],
-                "roc_auc": detection["roc_auc"],
-                "false_positive_rate": detection["false_positive_rate"],
-                "behavioural_plausibility": fidelity["behavioural_plausibility"],
-                "novelty_score": novelty["novelty_score"],
-                "channel_entropy": diversity["channel_entropy"],
-                "unique_row_ratio": diversity["unique_row_ratio"],
-                "support": len(attacks),
-                "chosen": family == chosen_specification.attack_family,
-            }
-        return metrics
 
     def run_robustness_suite(self, seeds: int = 3, rounds: int | None = None) -> dict:
         suite_start = time.perf_counter()
@@ -255,6 +265,7 @@ class ClosedLoop:
 
         flattened = [item for group in all_runs for item in group]
         summary = summarize_robustness(flattened)
+        family_analysis = summarize_family_performance(flattened)
         print(f"[robustness] suite complete in {time.perf_counter() - suite_start:.2f}s. Aggregated summary: {summary}")
         return {
             "seed_count": seeds,
@@ -262,6 +273,7 @@ class ClosedLoop:
             "families_per_run": list(build_round_family_plan(rounds, self.config["seed"])),
             "by_seed": [{"seed": self.config["seed"] + i, "results": run_results} for i, run_results in enumerate(all_runs)],
             "summary": summary,
+            "family_analysis": family_analysis,
         }
 
     def close(self) -> None:

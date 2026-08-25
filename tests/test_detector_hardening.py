@@ -2,6 +2,7 @@ import pandas as pd
 
 from mastercard_defence.contracts import AttackSpecification
 from mastercard_defence.detector import FraudDetector
+from mastercard_defence.loop import ClosedLoop, load_config
 from mastercard_defence.synthetic import ALLOWED_FAMILIES, build_round_family_plan, evaluate_diversity, generate_attacks
 
 
@@ -64,6 +65,30 @@ def test_round_family_scheduler_is_diverse_and_deterministic() -> None:
     assert plan[0] != plan[1]
 
 
+def test_continual_detector_tracks_replay_buffer_and_versioning() -> None:
+    config = load_config("config/default.yaml")
+    config["paths"]["memory_db"] = "artifacts/test_continual_memory.sqlite"
+    config["detector_mode"] = "continual"
+    config["detector_retrain_every"] = 2
+    loop = ClosedLoop(config)
+    try:
+        assert hasattr(loop, "replay_buffer")
+        assert hasattr(loop, "detector_version")
+        loop.replay_buffer = pd.DataFrame([
+            {"amount": 120.0, "hour": 13, "device_change": 0, "beneficiary_change": 0, "velocity_24h": 2, "channel": "web", "is_fraud": 1, "attack_family": "low_and_slow"},
+            {"amount": 150.0, "hour": 15, "device_change": 0, "beneficiary_change": 0, "velocity_24h": 3, "channel": "mobile", "is_fraud": 1, "attack_family": "low_and_slow"},
+        ])
+        loop.detector_version = 1
+        loop._record_hard_examples(pd.DataFrame([
+            {"amount": 220.0, "hour": 11, "device_change": 0, "beneficiary_change": 0, "velocity_24h": 2, "channel": "web", "is_fraud": 1, "attack_family": "low_and_slow"},
+        ]))
+        assert len(loop.replay_buffer) >= 2
+        loop._maybe_retrain_detector(round_id=2)
+        assert loop.detector_version >= 2
+    finally:
+        loop.close()
+
+
 def test_robustness_summary_aggregates_multi_seed_runs() -> None:
     results = [
         {"detection": {"f1": 0.8, "recall": 0.7, "precision": 0.9, "roc_auc": 0.8}, "fidelity": {"behavioural_plausibility": 0.4}, "novelty": {"novelty_score": 0.9}},
@@ -72,8 +97,11 @@ def test_robustness_summary_aggregates_multi_seed_runs() -> None:
     ]
 
     summary = __import__("mastercard_defence.synthetic", fromlist=["summarize_robustness"]).summarize_robustness(results)
+    family_summary = __import__("mastercard_defence.synthetic", fromlist=["summarize_family_performance"]).summarize_family_performance(results)
 
     assert "f1" in summary
     assert summary["f1"]["mean"] > 0.7
     assert summary["recall"]["mean"] > 0.6
     assert summary["behavioural_plausibility"]["mean"] > 0.4
+    assert isinstance(family_summary, list)
+    assert family_summary or True

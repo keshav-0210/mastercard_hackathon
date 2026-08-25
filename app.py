@@ -112,11 +112,6 @@ if artifact:
             st.subheader("Detector response by attack family")
             selected_families = st.multiselect("Families", sorted(family_rows["attack_family"].unique()), default=sorted(family_rows["attack_family"].unique()))
             visible = family_rows[family_rows["attack_family"].isin(selected_families)]
-            left, right = st.columns(2)
-            with left:
-                st.bar_chart(visible.groupby("attack_family")["f1"].mean(), y_label="mean F1")
-            with right:
-                st.bar_chart(visible.groupby("attack_family")["recall"].mean(), y_label="mean recall")
             st.dataframe(visible, width="stretch", hide_index=True)
     with architecture:
         st.subheader("How one round moves through the system")

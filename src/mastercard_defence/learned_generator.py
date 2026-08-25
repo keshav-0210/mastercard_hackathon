@@ -6,7 +6,7 @@ import torch
 from ctgan import CTGAN
 
 from .contracts import AttackSpecification
-from .synthetic import GENERATABLE_FAMILIES, ALLOWED_FAMILIES, CHANNELS, generate_attacks
+from .synthetic import ALLOWED_FAMILIES, CHANNELS, generate_attacks
 
 MODEL_COLUMNS = ["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "attack_family"]
 DISCRETE_COLUMNS = ["hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "attack_family"]
@@ -100,7 +100,7 @@ def build_training_corpus(seed: int, attack_size: int = 100, reference_size: int
         "attack_family": "legitimate",
     })
     attack_rows = []
-    for index, family in enumerate(GENERATABLE_FAMILIES):
+    for index, family in enumerate(ALLOWED_FAMILIES):
         specification = AttackSpecification(
             attack_id=f"training-{family}", attack_family=family,
             scenario="synthetic training scenario", target_context="synthetic payment security",

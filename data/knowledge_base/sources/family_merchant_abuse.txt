@@ -1,0 +1,11 @@
+Source summary: Merchant abuse fraud typology (project-authored defensive summary)
+Family slug: merchant_abuse
+
+Merchant abuse covers fraud patterns concentrated at or enabled by the merchant side of a transaction, including collusive or compromised merchants, friendly-fraud-adjacent refund abuse, and rapid repeated authorizations against a small number of merchant accounts. Public payment-security guidance notes that merchant-facing fraud is often characterized by unusually high transaction velocity concentrated in a short window, because the abuse typically depends on repeatedly exploiting the same merchant relationship before it is suspended or reviewed.
+
+Observable behavioural signals mapped to this project's synthetic schema: velocity_24h is the most elevated signal for this family, well above other families, reflecting repeated rapid authorizations; amount is typically higher than the baseline, consistent with maximizing value extracted per merchant relationship before detection; beneficiary_change is comparatively low, since the "beneficiary" in this pattern is usually the same merchant rather than a rotating set of payees; device_change is moderate, reflecting a mix of consumer devices interacting with the abused merchant; channel usage skews toward card-present or point-of-sale-adjacent channels, consistent with merchant-side transaction flows.
+
+Defensive mitigations discussed in public guidance include merchant-level velocity and chargeback-ratio monitoring, refund-pattern anomaly detection, tighter onboarding and periodic re-verification of higher-risk merchant categories, and cross-merchant network analysis to catch coordinated abuse.
+
+Relevant project use: grounds Agent 1's merchant_abuse hypotheses in high-velocity, elevated-amount behaviour concentrated on a narrow merchant relationship rather than diffuse beneficiary or device signals.
+Safety boundary: defensive, high-level summary only; no merchant-compromise techniques, real merchant data, production transactions, live targets, or operational exploit steps are described or provided.

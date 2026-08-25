@@ -1,0 +1,11 @@
+Source summary: Trusted-device abuse fraud typology (project-authored defensive summary)
+Family slug: trusted_device
+
+Trusted-device abuse describes fraud that deliberately avoids triggering device-based fraud controls by transacting from a device the issuer's model already treats as familiar or low-risk, for example a shared family device, a previously whitelisted device, or a device where the fraudster has quietly maintained a persistent, unremarkable session over time. Public fraud-defense literature notes that many detection systems weight "new device" heavily as a risk signal, so attackers who can operate from a recognized device deliberately suppress that signal and must be caught through other behavioural cues instead.
+
+Observable behavioural signals mapped to this project's synthetic schema: device_change stays low or near the legitimate baseline, which is the defining characteristic of this family, since the attacker intentionally avoids appearing on new hardware; velocity_24h and amount patterns are typically only moderately elevated rather than extreme, because an obviously anomalous spike would still draw attention even from a trusted device; beneficiary_change is present at a low-to-moderate rate as the attacker still needs to redirect funds somewhere; channel mix tends to lean toward mobile, matching the device that was compromised or borrowed.
+
+Defensive mitigations discussed in public guidance include layering behavioural biometrics and session-continuity checks on top of device trust, periodically re-verifying device binding, and combining device reputation with independent signals such as beneficiary novelty and transaction timing rather than relying on device recognition alone.
+
+Relevant project use: grounds Agent 1's trusted_device hypotheses in the low device-change, moderate-velocity behavioural pattern rather than an obviously anomalous device signal.
+Safety boundary: defensive, high-level summary only; no device-spoofing techniques, real device fingerprints, production data, live targets, or operational exploit steps are described or provided.
