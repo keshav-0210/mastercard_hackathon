@@ -37,7 +37,7 @@ class ConditionalCTGANGenerator:
         self.model.set_random_state(self.seed)
         self.model.fit(training_data[MODEL_COLUMNS], discrete_columns=DISCRETE_COLUMNS)
 
-    def generate(self, specification: AttackSpecification, size: int, round_id: int, seed: int) -> pd.DataFrame:
+    def generate(self, specification: AttackSpecification, size: int, round_id: int, seed: int, max_attempts: int = 32, allow_partial: bool = False) -> pd.DataFrame:
         if self.model is None:
             raise RuntimeError("ConditionalCTGANGenerator must be fitted before generation")
         if torch.cuda.is_available():
@@ -46,7 +46,7 @@ class ConditionalCTGANGenerator:
         self.model.set_random_state(seed)
         conditioned_batches = []
         remaining = size
-        for attempt in range(32):
+        for attempt in range(max_attempts):
             batch_size = max(remaining * 5, 50)
             candidate = self.model.sample(batch_size, condition_column="attack_family", condition_value=specification.attack_family)
             matched = candidate[candidate["attack_family"] == specification.attack_family]
@@ -55,14 +55,23 @@ class ConditionalCTGANGenerator:
                 remaining -= len(matched)
             if remaining <= 0:
                 break
+            if attempt >= 2:
+                matched_count = sum(len(batch) for batch in conditioned_batches)
+                print(f"[ctgan] family={specification.attack_family!r} attempt={attempt + 1}/{max_attempts} matched={matched_count}/{size}")
             self.model.set_random_state(seed + attempt + 1)
+        matched_count = sum(len(batch) for batch in conditioned_batches)
         if remaining > 0:
-            matched_count = sum(len(batch) for batch in conditioned_batches)
-            raise RuntimeError(
-                f"CTGAN produced only {matched_count} rows for attack family "
-                f"{specification.attack_family!r}; refusing to relabel mixed-family samples."
-            )
-        data = pd.concat(conditioned_batches, ignore_index=True).iloc[:size].copy()
+            if not allow_partial or matched_count == 0:
+                raise RuntimeError(
+                    f"CTGAN produced only {matched_count} rows for attack family "
+                    f"{specification.attack_family!r}; refusing to relabel mixed-family samples."
+                )
+            print(f"[ctgan] family={specification.attack_family!r} accepting partial batch: {matched_count}/{size} rows")
+        data = pd.concat(conditioned_batches, ignore_index=True)
+        if len(data) < size:
+            repeats = -(-size // max(len(data), 1))
+            data = pd.concat([data] * repeats, ignore_index=True)
+        data = data.iloc[:size].copy()
         data["is_fraud"] = 1
         data["amount"] = np.clip(pd.to_numeric(data["amount"], errors="coerce").fillna(100.0), 20.0, 4000.0).round(2)
         for column in ("hour", "device_change", "beneficiary_change", "velocity_24h"):

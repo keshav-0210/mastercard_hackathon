@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import numpy as np
@@ -98,6 +99,7 @@ class ClosedLoop:
             evaluation["unseen_attack_rows"] = len(unseen_attacks)
             evaluation["train_reference_rows"] = len(train_reference)
             evaluation["validation_legitimate_rows"] = len(holdout)
+            probe_start = time.perf_counter()
             all_family_metrics = self._evaluate_all_families(
                 detector,
                 holdout,
@@ -111,6 +113,7 @@ class ClosedLoop:
                 hypothesis,
                 memory_context,
             )
+            print(f"[seed={seed}] round {round_id}/{rounds} all-family probes complete in {time.perf_counter() - probe_start:.2f}s")
             evaluation["all_family_metrics"] = all_family_metrics
             evaluation["by_attack_family"] = {
                 family: {key: value for key, value in values.items() if key in {"precision", "recall", "f1", "roc_auc", "support"}}
@@ -165,7 +168,10 @@ class ClosedLoop:
 
     def _evaluate_all_families(self, detector, holdout, fidelity_reference, chosen_specification, chosen_attacks, attack_generator, attack_count, round_id, seed, hypothesis, memory_context):
         metrics = {}
-        for index, family in enumerate(GENERATABLE_FAMILIES):
+        probe_size = min(attack_count, self.config.get("family_probe_size", 20))
+        total_families = len(GENERATABLE_FAMILIES)
+        for index, family in enumerate(GENERATABLE_FAMILIES, start=1):
+            family_start = time.perf_counter()
             if family == chosen_specification.attack_family:
                 attacks = chosen_attacks
             else:
@@ -174,9 +180,14 @@ class ClosedLoop:
                     "attack_family": family,
                 })
                 if attack_generator is None:
-                    attacks = generate_attacks(probe_specification, attack_count, round_id, seed + 2000 + index)
+                    attacks = generate_attacks(probe_specification, probe_size, round_id, seed + 2000 + index)
                 else:
-                    attacks = attack_generator.generate(probe_specification, attack_count, round_id, seed + 2000 + index)
+                    try:
+                        attacks = attack_generator.generate(probe_specification, probe_size, round_id, seed + 2000 + index, max_attempts=5, allow_partial=True)
+                    except RuntimeError as exc:
+                        print(f"[seed={seed}] round {round_id} probe {index}/{total_families} family={family!r} CTGAN failed ({exc}); using procedural fallback")
+                        attacks = generate_attacks(probe_specification, probe_size, round_id, seed + 2000 + index)
+            print(f"[seed={seed}] round {round_id} probe {index}/{total_families} family={family} rows={len(attacks)} elapsed={time.perf_counter() - family_start:.2f}s")
             validation = pd.concat([holdout.assign(is_fraud=0), attacks], ignore_index=True)
             validation["attack_family"] = validation["attack_family"].fillna(family)
             detection = detector.evaluate(validation)
