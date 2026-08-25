@@ -57,7 +57,9 @@ class ClosedLoop:
                 recommendation = {"source": "seeded_plan", "family": chosen_family, "reason": "Initial family selected from the reproducible seeded plan."}
             else:
                 candidates = self._adaptive_candidates(previous_weakness, weakness_history)
+                agent_start = time.perf_counter()
                 family_recommendation = self.agents.recommend_family(previous_weakness, candidates, memory_context)
+                print(f"[seed={seed}] round {round_id} Agent1.recommend_family complete in {time.perf_counter() - agent_start:.2f}s")
                 weights = self._family_sampling_weights(candidates, previous_weakness, family_recommendation.recommended_family)
                 chosen_family = str(sampler.choice(candidates, p=np.asarray(weights) / sum(weights)))
                 recommendation = {
@@ -69,18 +71,24 @@ class ClosedLoop:
                 }
             decisions.append({"round": round_id, "family": chosen_family, "recommendation": recommendation})
             allowed_families = (chosen_family,) if chosen_family not in prior_families else tuple(family for family in ATTACK_FAMILIES if family not in prior_families) or ATTACK_FAMILIES
+            agent_start = time.perf_counter()
             hypothesis = self.agents.research(round_id, evidence, memory_context, query, allowed_families)
+            print(f"[seed={seed}] round {round_id} Agent1.research complete in {time.perf_counter() - agent_start:.2f}s")
             hypothesis.attack_family = chosen_family
             novelty = evaluate_novelty(hypothesis, memory_context)
+            agent_start = time.perf_counter()
             specification = self.agents.specify(hypothesis)
+            print(f"[seed={seed}] round {round_id} Agent2.specify complete in {time.perf_counter() - agent_start:.2f}s")
             specification.attack_family = chosen_family
             attack_count = self.config["pipeline"]["max_generated_attacks"]
+            generation_start = time.perf_counter()
             if attack_generator is None:
                 train_attacks = generate_attacks(specification, attack_count, round_id, seed + round_id)
                 unseen_attacks = generate_attacks(specification, attack_count, round_id, seed + 1000 + round_id)
             else:
                 train_attacks = attack_generator.generate(specification, attack_count, round_id, seed + round_id)
                 unseen_attacks = attack_generator.generate(specification, attack_count, round_id, seed + 1000 + round_id)
+            print(f"[seed={seed}] round {round_id} train/unseen generation complete in {time.perf_counter() - generation_start:.2f}s")
             train_size = int(attack_count * self.config["pipeline"].get("detector_train_fraction", 0.6))
             detector_attacks = train_attacks.iloc[:train_size].copy()
             fidelity = evaluate_fidelity(fidelity_reference, unseen_attacks)
@@ -124,7 +132,9 @@ class ClosedLoop:
                 missed = unseen_attacks.loc[predictions == 0].copy()
                 hard_examples = missed if hard_examples.empty else pd.concat([hard_examples, missed], ignore_index=True).drop_duplicates()
             evaluation["hard_examples_replayed"] = int(len(hard_examples)) if hard_examples is not None else 0
+            agent_start = time.perf_counter()
             weakness = self.agents.analyze(round_id, evaluation, fidelity)
+            print(f"[seed={seed}] round {round_id} Agent3.analyze complete in {time.perf_counter() - agent_start:.2f}s")
             previous_weakness = weakness
             weakness_history.append(weakness)
             self.memory.add(MemoryRecord(round_id=round_id, record_type="hypothesis", content=hypothesis.model_dump()))
