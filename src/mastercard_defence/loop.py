@@ -179,7 +179,9 @@ class ClosedLoop:
     def _evaluate_all_families(self, detector, holdout, fidelity_reference, chosen_specification, chosen_attacks, attack_generator, attack_count, round_id, seed, hypothesis, memory_context):
         metrics = {}
         probe_size = min(attack_count, self.config.get("family_probe_size", 20))
+        probe_backend = str(self.config.get("family_probe_backend", "procedural")).lower()
         total_families = len(GENERATABLE_FAMILIES)
+        print(f"[seed={seed}] round {round_id} family probes backend={probe_backend} size={probe_size}")
         for index, family in enumerate(GENERATABLE_FAMILIES, start=1):
             family_start = time.perf_counter()
             if family == chosen_specification.attack_family:
@@ -189,7 +191,7 @@ class ClosedLoop:
                     "attack_id": f"round-{round_id}-probe-{family}",
                     "attack_family": family,
                 })
-                if attack_generator is None:
+                if attack_generator is None or probe_backend == "procedural":
                     attacks = generate_attacks(probe_specification, probe_size, round_id, seed + 2000 + index)
                 else:
                     try:
@@ -221,12 +223,14 @@ class ClosedLoop:
         return metrics
 
     def run_robustness_suite(self, seeds: int = 3, rounds: int | None = None) -> dict:
+        suite_start = time.perf_counter()
         rounds = rounds or self.config["pipeline"]["rounds"]
         all_runs: list[list[dict]] = []
         attack_generator = None
         if self.config.get("generator_backend", "procedural").lower() == "ctgan":
             from .learned_generator import ConditionalCTGANGenerator, build_training_corpus
 
+            fit_start = time.perf_counter()
             print("[robustness] preparing CTGAN training corpus")
             attack_generator = ConditionalCTGANGenerator(seed=self.config["seed"], epochs=self.config.get("generator_epochs", 20))
             training_corpus = build_training_corpus(
@@ -236,9 +240,10 @@ class ClosedLoop:
             )
             print(f"[robustness] fitting CTGAN: rows={len(training_corpus)} epochs={attack_generator.epochs}")
             attack_generator.fit(training_corpus)
-            print("[robustness] CTGAN ready; entering round loop")
+            print(f"[robustness] CTGAN ready in {time.perf_counter() - fit_start:.2f}s; entering round loop")
         print(f"[robustness] starting suite: seeds={seeds}, rounds={rounds}")
         for seed_index in range(seeds):
+            seed_start = time.perf_counter()
             run_seed = self.config["seed"] + seed_index
             family_plan = build_round_family_plan(rounds, run_seed)
             print(f"[robustness] starting seed {run_seed} with family plan: {family_plan}")
@@ -246,11 +251,11 @@ class ClosedLoop:
                 attack_generator.model.set_random_state(run_seed)
             run_results = self.run(rounds=rounds, family_plan=family_plan, seed=run_seed, attack_generator=attack_generator, detector_mode=self.config.get("detector_mode", "static"), hard_examples=pd.DataFrame())
             all_runs.append(run_results)
-            print(f"[robustness] completed seed {run_seed} with {len(run_results)} rounds")
+            print(f"[robustness] completed seed {run_seed} with {len(run_results)} rounds in {time.perf_counter() - seed_start:.2f}s")
 
         flattened = [item for group in all_runs for item in group]
         summary = summarize_robustness(flattened)
-        print(f"[robustness] suite complete. Aggregated summary: {summary}")
+        print(f"[robustness] suite complete in {time.perf_counter() - suite_start:.2f}s. Aggregated summary: {summary}")
         return {
             "seed_count": seeds,
             "rounds": rounds,
