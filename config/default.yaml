@@ -15,7 +15,7 @@ paths:
   memory_db: artifacts/attack_memory.sqlite
 
 pipeline:
-  rounds: 3
+  rounds: 50
   synthetic_transactions: 400
   max_generated_attacks: 80
   rag_top_k: 4

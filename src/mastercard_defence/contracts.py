@@ -80,6 +80,7 @@ class FidelityReport(BaseModel):
 class WeaknessReport(BaseModel):
     round_id: int
     observed_weaknesses: list[str]
+    weakness_families: list[str] = Field(default_factory=list)
     supporting_evidence: list[str]
     priority: Literal["low", "medium", "high"]
     recommended_next_attack_direction: str

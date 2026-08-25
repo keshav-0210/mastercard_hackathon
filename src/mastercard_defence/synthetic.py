@@ -16,6 +16,19 @@ ALLOWED_FAMILIES = (
     "cross_channel_anomaly",
 )
 
+ADAPTIVE_VARIANTS = (
+    "trusted_device_normal_velocity",
+    "low_and_slow_common_channel",
+    "beneficiary_manipulation_moderate_amount",
+)
+
+DISCOVERY_CANDIDATES = (
+    "trusted_device_low_and_slow",
+    "social_engineering_beneficiary_manipulation",
+)
+
+GENERATABLE_FAMILIES = ALLOWED_FAMILIES + ADAPTIVE_VARIANTS + DISCOVERY_CANDIDATES
+
 
 def build_round_family_plan(rounds: int, seed: int = 0) -> list[str]:
     rng = np.random.default_rng(seed)
