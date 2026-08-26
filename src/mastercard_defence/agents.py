@@ -102,9 +102,21 @@ class QwenAgents:
             json.dumps(specification_input, ensure_ascii=True),
         )
         constraints = payload.get("realism_constraints", [])
-        payload["realism_constraints"] = [
-            f"{key}: {value}" for key, value in constraints.items()
-        ] if isinstance(constraints, dict) else constraints
+        if isinstance(constraints, dict):
+            constraints = [f"{key}: {value}" for key, value in constraints.items()]
+        elif isinstance(constraints, str):
+            constraints = [constraints]
+        elif not isinstance(constraints, list):
+            constraints = [str(constraints)]
+        payload["realism_constraints"] = constraints
+        feature_constraints = payload.get("feature_constraints", {})
+        if isinstance(feature_constraints, str):
+            feature_constraints = {"note": feature_constraints}
+        elif isinstance(feature_constraints, list):
+            feature_constraints = {"items": feature_constraints}
+        elif not isinstance(feature_constraints, dict):
+            feature_constraints = {"note": str(feature_constraints)}
+        payload["feature_constraints"] = feature_constraints
         for field in ("temporal_pattern", "amount_pattern", "device_pattern", "beneficiary_pattern", "evasion_objective"):
             if isinstance(payload.get(field), (dict, list)):
                 payload[field] = json.dumps(payload[field], ensure_ascii=True, sort_keys=True)
