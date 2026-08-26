@@ -28,8 +28,9 @@ def build_round_family_plan(rounds: int, seed: int = 0) -> list[str]:
         for family in families:
             if len(plan) >= rounds:
                 break
-            if family not in plan:
-                plan.append(family)
+            # Cycle through the shuffled families again once all have been used;
+            # requiring global uniqueness forever would infinite-loop past 7 rounds.
+            plan.append(family)
     return plan
 
 
