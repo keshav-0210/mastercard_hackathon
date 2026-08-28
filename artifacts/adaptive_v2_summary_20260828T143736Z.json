@@ -1,0 +1,32 @@
+{
+  "run_timestamp_utc": "20260828T143736Z",
+  "seed_count": 1,
+  "rounds": 20,
+  "detector_mode": "continual",
+  "detector_retrain_every": 2,
+  "max_replay_examples": 400,
+  "weakness_weight_multiplier": 14.0,
+  "summary": {
+    "f1": {"mean": 0.6586, "std": 0.0503, "min": 0.5778, "max": 0.7746},
+    "recall": {"mean": 0.57, "std": 0.0615, "min": 0.4625, "max": 0.6875},
+    "precision": {"mean": 0.784, "std": 0.0446, "min": 0.7091, "max": 0.8871},
+    "roc_auc": {"mean": 0.9538, "std": 0.011, "min": 0.9295, "max": 0.9689},
+    "novelty_score": {"mean": 0.9624, "std": 0.0115, "min": 0.9558, "max": 1.0},
+    "behavioural_plausibility": {"mean": 0.6222, "std": 0.0673, "min": 0.4531, "max": 0.7194}
+  },
+  "detector_version_analysis": [
+    {"detector_version": 1, "round_count": 2, "precision": 0.7931, "recall": 0.5, "f1": 0.6122, "roc_auc": 0.9565},
+    {"detector_version": 2, "round_count": 2, "precision": 0.8282, "recall": 0.5938, "f1": 0.6904, "roc_auc": 0.9649},
+    {"detector_version": 3, "round_count": 2, "precision": 0.7573, "recall": 0.5687, "f1": 0.6485, "roc_auc": 0.9543},
+    {"detector_version": 4, "round_count": 2, "precision": 0.8026, "recall": 0.5875, "f1": 0.6783, "roc_auc": 0.9532},
+    {"detector_version": 5, "round_count": 2, "precision": 0.8167, "recall": 0.5813, "f1": 0.6783, "roc_auc": 0.9473},
+    {"detector_version": 6, "round_count": 2, "precision": 0.7863, "recall": 0.5813, "f1": 0.6664, "roc_auc": 0.959},
+    {"detector_version": 7, "round_count": 2, "precision": 0.7636, "recall": 0.525, "f1": 0.6222, "roc_auc": 0.9516},
+    {"detector_version": 8, "round_count": 2, "precision": 0.7906, "recall": 0.5875, "f1": 0.6738, "roc_auc": 0.9552},
+    {"detector_version": 9, "round_count": 2, "precision": 0.779, "recall": 0.6, "f1": 0.6778, "roc_auc": 0.9549},
+    {"detector_version": 10, "round_count": 2, "precision": 0.7226, "recall": 0.575, "f1": 0.6376, "roc_auc": 0.9408}
+  ],
+  "family_analysis_rows": 5,
+  "families_explored": ["account_takeover", "beneficiary_manipulation", "cross_channel_anomaly", "merchant_abuse", "social_engineering"],
+  "families_never_reached": ["trusted_device", "low_and_slow"]
+}
