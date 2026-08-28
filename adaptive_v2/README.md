@@ -10,6 +10,4 @@ Open `adaptive/adaptive.ipynb` in Kaggle with GPU enabled and run the cells in o
 - `adaptive_v2_results_<timestamp>.json`
 - `adaptive_v2_memory_<timestamp>.sqlite`
 
-Charts are written under `adaptive/charts/<family>/<metric>.png`.
-
-The implementation lives in `src/mastercard_defence/`. Agent 3 weakness families and confidence influence Agent 1 sampling, while all-family inference probes are kept separate from detector training.
+The implementation lives in `src/mastercard_defence/`. Each round selects and evaluates one of the seven approved families. Agent 3 weakness families and confidence influence Agent 1 sampling in the next round.

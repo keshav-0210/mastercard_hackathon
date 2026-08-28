@@ -7,3 +7,5 @@ PyYAML>=6.0
 streamlit>=1.36
 sentence-transformers>=3.0
 llama-cpp-python>=0.2.90
+matplotlib>=3.8
+reportlab>=4.0

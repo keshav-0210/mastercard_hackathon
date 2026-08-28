@@ -14,6 +14,7 @@ if ROOT not in sys.path:
 os.chdir(ROOT)
 
 from mastercard_defence.loop import ClosedLoop, load_config
+from mastercard_defence.synthetic import build_metrics_dump
 
 
 def to_jsonable(value):
@@ -60,6 +61,7 @@ def main(seeds: int = 1) -> None:
                 'families_per_run': suite['families_per_run'],
                 'summary': suite['summary'],
                 'family_analysis': suite.get('family_analysis', []),
+                'detector_version_analysis': suite.get('detector_version_analysis', []),
                 'round_metrics': [
                     {
                         'seed': run['seed'],
@@ -78,8 +80,12 @@ def main(seeds: int = 1) -> None:
             }
             artifact_path = artifacts_path / f'robustness_results_{run_stamp}.json'
             artifact_path.write_text(json.dumps(to_jsonable(artifact), indent=2), encoding='utf-8')
+            metrics_dump = build_metrics_dump([result for run in suite['by_seed'] for result in run['results']])
+            metrics_dump_path = artifacts_path / f'metrics_dump_{run_stamp}.json'
+            metrics_dump_path.write_text(json.dumps(to_jsonable(metrics_dump), indent=2), encoding='utf-8')
             print(json.dumps({key: artifact[key] for key in ('run_timestamp_utc', 'seed_count', 'rounds', 'families_per_run', 'summary')}, indent=2))
             print(f'RESULTS_SAVED {artifact_path}')
+            print(f'METRICS_DUMP_SAVED {metrics_dump_path}')
             print(f'LOG_SAVED {log_path}')
         finally:
             loop.close()

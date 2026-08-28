@@ -302,3 +302,76 @@ def summarize_family_performance(results: list[dict]) -> list[dict]:
             row[metric] = round(float(np.mean(values)), 4) if values else 0.0
         rows.append(row)
     return rows
+
+
+def summarize_detector_version_performance(results: list[dict]) -> list[dict]:
+    """Groups round metrics by detector_version so V1->V2->V3 improvement from hard-sample
+    replay can be verified directly instead of assumed."""
+    version_values: dict[int, dict[str, list[float] | int]] = {}
+    for result in results:
+        detection = result.get("detection", {})
+        version = detection.get("detector_version")
+        if version is None:
+            continue
+        entry = version_values.setdefault(
+            version,
+            {"detector_version": version, "round_count": 0, "precision": [], "recall": [], "f1": [], "roc_auc": []},
+        )
+        entry["round_count"] = int(entry["round_count"]) + 1
+        for metric in ("precision", "recall", "f1", "roc_auc"):
+            value = detection.get(metric)
+            if value is not None:
+                entry[metric].append(float(value))
+
+    rows: list[dict] = []
+    for version, entry in sorted(version_values.items()):
+        row: dict[str, float | int] = {"detector_version": version, "round_count": int(entry["round_count"])}
+        for metric in ("precision", "recall", "f1", "roc_auc"):
+            values = entry[metric]
+            row[metric] = round(float(np.mean(values)), 4) if values else 0.0
+        rows.append(row)
+    return rows
+
+
+def build_metrics_dump(results: list[dict]) -> list[dict]:
+    """Flat, UI-ready per-round metric table covering every Red/Blue Team metric required for the
+    hackathon evaluation table, so a future dashboard can chart directly from a saved file without
+    re-running the pipeline."""
+    rows: list[dict] = []
+    for result in results:
+        detection = result.get("detection", {}) or {}
+        fidelity = result.get("fidelity", {}) or {}
+        diversity = result.get("diversity", {}) or {}
+        novelty = result.get("novelty", {}) or {}
+        historical = detection.get("historical_robustness", {}) or {}
+        specification = result.get("specification")
+        rows.append(
+            {
+                "round": result.get("round"),
+                "attack_family": getattr(specification, "attack_family", None),
+                "detector_version": detection.get("detector_version"),
+                # Red Team
+                "attack_diversity_channel_entropy": diversity.get("channel_entropy"),
+                "attack_diversity_unique_row_ratio": diversity.get("unique_row_ratio"),
+                "attack_fidelity_behavioural_plausibility": fidelity.get("behavioural_plausibility"),
+                "attack_novelty_score": novelty.get("novelty_score"),
+                "attack_difficulty_score": detection.get("attack_difficulty_score"),
+                "family_coverage_cumulative_ratio": diversity.get("cumulative_family_coverage_ratio"),
+                "family_coverage_cumulative_count": diversity.get("cumulative_families_explored"),
+                "variant_redundancy_ratio": diversity.get("cross_round_redundancy_ratio"),
+                "variant_unique_ratio": diversity.get("cross_round_unique_ratio"),
+                # Blue Team
+                "precision": detection.get("precision"),
+                "recall": detection.get("recall"),
+                "f1": detection.get("f1"),
+                "roc_auc": detection.get("roc_auc"),
+                "false_positive_rate": detection.get("false_positive_rate"),
+                "unseen_attack_evaluation_protocol": detection.get("evaluation_protocol"),
+                "historical_robustness_insufficient": historical.get("insufficient_history"),
+                "historical_robustness_precision": historical.get("precision"),
+                "historical_robustness_recall": historical.get("recall"),
+                "historical_robustness_f1": historical.get("f1"),
+                "historical_robustness_roc_auc": historical.get("roc_auc"),
+            }
+        )
+    return rows

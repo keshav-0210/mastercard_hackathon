@@ -12,7 +12,7 @@ from .contracts import RoundRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
 from .rag import LocalKnowledgeBase
-from .synthetic import build_round_family_plan, evaluate_diversity, evaluate_fidelity, evaluate_novelty, fraud_rate_for, generate_attacks, legitimate_rows_for_fraud_rate, make_reference_transactions, summarize_family_performance, summarize_robustness
+from .synthetic import build_round_family_plan, evaluate_diversity, evaluate_fidelity, evaluate_novelty, fraud_rate_for, generate_attacks, legitimate_rows_for_fraud_rate, make_reference_transactions, summarize_detector_version_performance, summarize_family_performance, summarize_robustness
 
 
 class ClosedLoop:
@@ -30,6 +30,12 @@ class ClosedLoop:
         self.detector_version = 1
         self.detector_retrain_every = int(self.config.get("detector_retrain_every", 3))
         self.max_replay_examples = int(self.config.get("max_replay_examples", 200))
+        # Cross-round state: lets us measure cumulative family coverage, redundancy against
+        # prior rounds' attacks, and whether the detector still catches old attack patterns.
+        self.historical_unseen_pool = pd.DataFrame()
+        self.historical_signatures: set[tuple] = set()
+        self.explored_families: set[str] = set()
+        self.max_historical_pool = int(self.config.get("max_historical_pool", 300))
 
     def _record_hard_examples(self, new_examples: pd.DataFrame | None) -> None:
         if new_examples is None or new_examples.empty:
@@ -54,6 +60,51 @@ class ClosedLoop:
             self.detector_version += 1
             return True
         return False
+
+    def _cross_round_redundancy(self, attacks: pd.DataFrame) -> tuple[dict, set]:
+        """Compares this round's generated rows against every prior round's rows to catch
+        near-duplicate (redundant) attack variants rather than only within-round uniqueness."""
+        signature_columns = ["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel"]
+        signatures = {
+            (round(float(row["amount"])), int(row["hour"]), int(row["device_change"]), int(row["beneficiary_change"]), int(row["velocity_24h"]), str(row["channel"]))
+            for row in attacks[signature_columns].to_dict(orient="records")
+        }
+        overlap = len(signatures & self.historical_signatures)
+        total = max(len(signatures), 1)
+        redundancy_ratio = round(overlap / total, 4)
+        return {
+            "cross_round_redundancy_ratio": redundancy_ratio,
+            "cross_round_unique_ratio": round(1.0 - redundancy_ratio, 4),
+        }, signatures
+
+    def _update_historical_pool(self, new_fraud_rows: pd.DataFrame | None) -> None:
+        if new_fraud_rows is None or new_fraud_rows.empty:
+            return
+        columns = ["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "is_fraud", "attack_family"]
+        available = [column for column in columns if column in new_fraud_rows.columns]
+        combined = pd.concat([self.historical_unseen_pool, new_fraud_rows[available]], ignore_index=True)
+        combined = combined.drop_duplicates().reset_index(drop=True)
+        if len(combined) > self.max_historical_pool:
+            combined = combined.tail(self.max_historical_pool).reset_index(drop=True)
+        self.historical_unseen_pool = combined
+
+    def _evaluate_historical_robustness(self, detector: FraudDetector, seed: int, round_id: int) -> dict:
+        """Checks whether the just-fitted detector still catches attacks from earlier rounds,
+        so detector-version improvement and non-forgetting can be measured, not assumed."""
+        if self.historical_unseen_pool.empty:
+            return {"insufficient_history": True, "historical_fraud_rows": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0, "roc_auc": 0.5}
+        historical_legit = make_reference_transactions(len(self.historical_unseen_pool), seed + 9000 + round_id)
+        historical_validation = pd.concat([historical_legit.assign(is_fraud=0), self.historical_unseen_pool], ignore_index=True)
+        historical_validation["attack_family"] = historical_validation["attack_family"].fillna("legitimate")
+        result = detector.evaluate(historical_validation)
+        return {
+            "insufficient_history": False,
+            "historical_fraud_rows": int(len(self.historical_unseen_pool)),
+            "precision": result["precision"],
+            "recall": result["recall"],
+            "f1": result["f1"],
+            "roc_auc": result["roc_auc"],
+        }
 
     def run(self, rounds: int | None = None, family_plan: list[str] | None = None, seed: int | None = None, attack_generator=None, detector_mode: str = "static", hard_examples: pd.DataFrame | None = None) -> list[dict]:
         rounds = rounds or self.config["pipeline"]["rounds"]
@@ -130,6 +181,11 @@ class ClosedLoop:
             detector_attacks = train_attacks.iloc[:train_size].copy()
             fidelity = evaluate_fidelity(fidelity_reference, unseen_attacks)
             diversity = evaluate_diversity(unseen_attacks)
+            redundancy_metrics, new_signatures = self._cross_round_redundancy(unseen_attacks)
+            diversity.update(redundancy_metrics)
+            self.explored_families.add(chosen_family)
+            diversity["cumulative_families_explored"] = len(self.explored_families)
+            diversity["cumulative_family_coverage_ratio"] = round(len(self.explored_families) / len(ATTACK_FAMILIES), 4)
             training_parts = [train_reference, detector_attacks]
             if detector_mode == "continual":
                 replay_examples = self.replay_buffer.copy()
@@ -161,6 +217,9 @@ class ClosedLoop:
             evaluation["validation_legitimate_rows"] = len(holdout)
             evaluation["training_fraud_rate"] = round(training_fraud_rate, 4)
             evaluation["validation_fraud_rate"] = round(validation_fraud_rate, 4)
+            evaluation["detector_version"] = self.detector_version
+            evaluation["historical_robustness"] = self._evaluate_historical_robustness(detector, seed, round_id)
+            evaluation["attack_difficulty_score"] = round(1.0 - float(evaluation.get("recall", 0.0)), 4)
             if detector_mode == "continual":
                 predictions = detector.predict(unseen_attacks)
                 missed = unseen_attacks.loc[predictions == 0].copy()
@@ -176,6 +235,8 @@ class ClosedLoop:
             print(f"[seed={seed}] round {round_id} Agent3.analyze complete in {time.perf_counter() - agent_start:.2f}s")
             previous_weakness = weakness
             weakness_history.append(weakness)
+            self._update_historical_pool(unseen_attacks[unseen_attacks["is_fraud"] == 1])
+            self.historical_signatures.update(new_signatures)
             generator_metadata = {
                 "backend": "ctgan" if attack_generator is not None else "procedural",
                 "epochs": self.config.get("generator_epochs") if attack_generator is not None else None,
@@ -219,14 +280,14 @@ class ClosedLoop:
     def _adaptive_candidates(weakness, history) -> tuple[str, ...]:
         return ATTACK_FAMILIES
 
-    @staticmethod
-    def _family_sampling_weights(candidates, weakness, agent_family: str) -> list[float]:
+    def _family_sampling_weights(self, candidates, weakness, agent_family: str) -> list[float]:
         confidence = float(weakness.confidence)
+        weakness_multiplier = float(self.config.get("weakness_weight_multiplier", 8.0))
         affected_attack_families = set(weakness.affected_attack_families)
         weights = []
         for family in candidates:
             parent_match = family in affected_attack_families or any(parent in affected_attack_families for parent in ATTACK_FAMILIES if parent in family)
-            weight = 1.0 + (8.0 * confidence if parent_match else 0.0)
+            weight = 1.0 + (weakness_multiplier * confidence if parent_match else 0.0)
             if family == agent_family:
                 weight *= 1.25
             weights.append(round(weight, 4))
@@ -266,6 +327,7 @@ class ClosedLoop:
         flattened = [item for group in all_runs for item in group]
         summary = summarize_robustness(flattened)
         family_analysis = summarize_family_performance(flattened)
+        detector_version_analysis = summarize_detector_version_performance(flattened)
         print(f"[robustness] suite complete in {time.perf_counter() - suite_start:.2f}s. Aggregated summary: {summary}")
         return {
             "seed_count": seeds,
@@ -274,6 +336,7 @@ class ClosedLoop:
             "by_seed": [{"seed": self.config["seed"] + i, "results": run_results} for i, run_results in enumerate(all_runs)],
             "summary": summary,
             "family_analysis": family_analysis,
+            "detector_version_analysis": detector_version_analysis,
         }
 
     def close(self) -> None:
