@@ -397,6 +397,7 @@ def build_metrics_dump(results: list[dict]) -> list[dict]:
                 "attack_diversity_channel_entropy": diversity.get("channel_entropy"),
                 "attack_diversity_unique_row_ratio": diversity.get("unique_row_ratio"),
                 "attack_fidelity_behavioural_plausibility": fidelity.get("behavioural_plausibility"),
+                "attack_fidelity_behavioural_plausibility_raw": fidelity.get("behavioural_plausibility_raw"),
                 "attack_novelty_score": novelty.get("novelty_score"),
                 "attack_difficulty_score": detection.get("attack_difficulty_score"),
                 "family_coverage_cumulative_ratio": diversity.get("cumulative_family_coverage_ratio"),

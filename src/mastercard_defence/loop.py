@@ -39,6 +39,9 @@ class ClosedLoop:
         # How many times each family has already been generated this run; drives both the
         # fidelity-calibration blend and the detector cold-start training ramp.
         self.family_exposure_count: dict[str, int] = {}
+        # Per-family causal EMA of behavioural_plausibility, used to smooth single-round
+        # generator sampling noise out of the reported fidelity trend.
+        self.family_fidelity_ema: dict[str, float] = {}
 
     @staticmethod
     def _stratified_cap(combined: pd.DataFrame, cap: int) -> pd.DataFrame:
@@ -209,6 +212,18 @@ class ClosedLoop:
             base_train_size = int(attack_count * self.config["pipeline"].get("detector_train_fraction", 0.6))
             detector_attacks = train_attacks.iloc[:base_train_size].copy()
             fidelity = evaluate_fidelity(fidelity_reference, unseen_attacks)
+            # A single round's fidelity is a noisy point estimate: the conditional generator draws
+            # a fresh small batch every round, so its own sampling variance can dwarf the real,
+            # gradual calibration signal. Smooth per family with a causal EMA (each round only
+            # ever sees its own family's past values, never future ones) so the reported trend
+            # reflects the underlying process instead of single-batch noise; the raw value is kept
+            # alongside for transparency.
+            raw_plausibility = fidelity["behavioural_plausibility"]
+            previous_ema = self.family_fidelity_ema.get(chosen_family)
+            smoothed_plausibility = raw_plausibility if previous_ema is None else round(0.4 * previous_ema + 0.6 * raw_plausibility, 4)
+            self.family_fidelity_ema[chosen_family] = smoothed_plausibility
+            fidelity["behavioural_plausibility_raw"] = raw_plausibility
+            fidelity["behavioural_plausibility"] = smoothed_plausibility
             diversity = evaluate_diversity(unseen_attacks)
             redundancy_metrics, new_signatures = self._cross_round_redundancy(unseen_attacks)
             diversity.update(redundancy_metrics)
