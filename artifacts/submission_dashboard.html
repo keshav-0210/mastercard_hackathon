@@ -25,11 +25,11 @@
     position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 22px;
     padding: 12px 28px; background: rgba(17,17,17,0.95); backdrop-filter: blur(6px);
   }
-  .navbar .brand { display:flex; align-items:center; gap:8px; margin-right: auto; }
+  .navbar .brand { display:flex; align-items:center; gap:10px; margin-right: auto; }
   .navbar .dots { display:flex; }
-  .navbar .dots span { width:16px; height:16px; border-radius:50%; display:inline-block; margin-left:-6px; }
+  .navbar .dots span { width:22px; height:22px; border-radius:50%; display:inline-block; margin-left:-9px; }
   .navbar .dots span:first-child { background: var(--mc-red); margin-left:0; }
-  .navbar .dots span:last-child { background: var(--mc-orange); mix-blend-mode: multiply; }
+  .navbar .dots span:last-child { background: var(--mc-orange); mix-blend-mode: screen; }
   .navbar .brand b { color: #fff; font-size: 15px; letter-spacing: 0.3px; }
   .navbar nav a {
     color: #d8d8d8; text-decoration: none; font-size: 13px; font-weight: 600;
@@ -194,9 +194,6 @@
   <section id="architecture" class="alt">
     <div class="section-label">Architecture</div>
     <h2 class="section-title">Closed-loop system design</h2>
-    <p class="body-text">The diagram below reflects the current implementation state. Replace
-      <code>artifacts/architecture_diagram.png</code> with an updated export and refresh this page &mdash;
-      no rebuild step is required for the image.</p>
     <div class="arch-wrap">
       <img src="architecture_diagram.png" alt="System architecture diagram" onerror="this.replaceWith(Object.assign(document.createElement('div'),{innerText:'architecture_diagram.png not found next to this HTML file yet.',style:'padding:40px;color:#999;'}))">
       <div class="arch-caption">Generated via <code>src/ui/build_architecture_diagram.py</code> from the current codebase.</div>
@@ -362,7 +359,7 @@ function drawLineChart(canvas, series, spec) {
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
-  const pad = { l: 46, r: 14, t: 14, b: 32 };
+  const pad = { l: 54, r: 14, t: 14, b: 46 };
   const xs = series.map(p => p.x);
   const ys = series.map(p => p.y).filter(v => v !== null && v !== undefined);
   if (!xs.length || !ys.length) {
@@ -394,6 +391,15 @@ function drawLineChart(canvas, series, spec) {
   ctx.fillStyle = '#7a7a7a'; ctx.textAlign = 'center'; ctx.font = '10px Arial';
   const step = Math.max(1, Math.ceil(xs.length / 8));
   xs.forEach((x, i) => { if (i % step === 0 || i === xs.length - 1) ctx.fillText(String(x), xScale(x), H - pad.b + 13); });
+
+  ctx.fillStyle = '#444'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('Number of Rounds', pad.l + (W - pad.l - pad.r) / 2, H - 6);
+  ctx.save();
+  ctx.translate(14, pad.t + (H - pad.t - pad.b) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Value', 0, 0);
+  ctx.restore();
 
   const color = spec.team === 'red' ? '#EB001B' : '#1B3A6B';
   ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.beginPath();
