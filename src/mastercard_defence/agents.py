@@ -120,6 +120,25 @@ class QwenAgents:
         for field in ("temporal_pattern", "amount_pattern", "device_pattern", "beneficiary_pattern", "evasion_objective"):
             if isinstance(payload.get(field), (dict, list)):
                 payload[field] = json.dumps(payload[field], ensure_ascii=True, sort_keys=True)
+        # Qwen occasionally omits a required string field from its JSON output; fall back to the
+        # hypothesis's own text instead of letting the whole round fail on a validation error.
+        required_string_fields = {
+            "scenario": hypothesis.scenario,
+            "target_context": hypothesis.target_context,
+            "temporal_pattern": hypothesis.behavioural_mechanism,
+            "amount_pattern": hypothesis.behavioural_mechanism,
+            "device_pattern": hypothesis.behavioural_mechanism,
+            "beneficiary_pattern": hypothesis.behavioural_mechanism,
+            "evasion_objective": hypothesis.novelty_rationale,
+        }
+        for field, fallback in required_string_fields.items():
+            value = payload.get(field)
+            if not isinstance(value, str) or not value.strip():
+                payload[field] = fallback
+        # attack_id/attack_family are authoritative from the hypothesis (the caller overrides
+        # attack_family right after this call anyway); never let Qwen's echo of these break validation.
+        payload["attack_id"] = hypothesis.attack_id
+        payload["attack_family"] = hypothesis.attack_family
         payload["evidence"] = [item.model_dump() for item in hypothesis.evidence]
         return AttackSpecification.model_validate(payload)
 
