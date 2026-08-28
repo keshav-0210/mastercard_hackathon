@@ -1,0 +1,37 @@
+{
+  "run_timestamp_utc": "20260828T202159Z",
+  "experiment": "adaptive_v2_qwen_ctgan_continual_detector",
+  "agent_backend": "QwenAgents",
+  "generator_backend": "conditional_ctgan",
+  "detector_mode": "continual",
+  "fraud_rate_target": 0.02,
+  "seed_count": 1,
+  "rounds": 20,
+  "families_explored": ["account_takeover", "low_and_slow", "cross_channel_anomaly", "trusted_device", "beneficiary_manipulation", "social_engineering"],
+  "families_never_reached": ["merchant_abuse"],
+  "aggregate_summary": {
+    "f1": {"mean": 0.409, "std": 0.097, "min": 0.227, "max": 0.596},
+    "recall": {"mean": 0.4325, "std": 0.1193, "min": 0.2, "max": 0.5875},
+    "precision": {"mean": 0.406, "std": 0.1121, "min": 0.2386, "max": 0.6389},
+    "roc_auc": {"mean": 0.8796, "std": 0.0163, "min": 0.8422, "max": 0.9097},
+    "novelty_score": {"mean": 0.9073, "std": 0.0408, "min": 0.8636, "max": 0.9836},
+    "behavioural_plausibility": {"mean": 0.7465, "std": 0.0391, "min": 0.6752, "max": 0.8262}
+  },
+  "detector_version_analysis": [
+    {"detector_version": 1, "round_count": 2, "precision": 0.6363, "recall": 0.425, "f1": 0.4963, "roc_auc": 0.8561},
+    {"detector_version": 2, "round_count": 2, "precision": 0.4881, "recall": 0.45, "f1": 0.4652, "roc_auc": 0.8806},
+    {"detector_version": 3, "round_count": 2, "precision": 0.4533, "recall": 0.5125, "f1": 0.4811, "roc_auc": 0.8943},
+    {"detector_version": 4, "round_count": 2, "precision": 0.3651, "recall": 0.3, "f1": 0.3173, "roc_auc": 0.8681},
+    {"detector_version": 5, "round_count": 2, "precision": 0.3641, "recall": 0.3562, "f1": 0.3575, "roc_auc": 0.8773},
+    {"detector_version": 6, "round_count": 2, "precision": 0.3312, "recall": 0.525, "f1": 0.406, "roc_auc": 0.8768},
+    {"detector_version": 7, "round_count": 2, "precision": 0.383, "recall": 0.4562, "f1": 0.4141, "roc_auc": 0.8772},
+    {"detector_version": 8, "round_count": 2, "precision": 0.4192, "recall": 0.5188, "f1": 0.4633, "roc_auc": 0.892},
+    {"detector_version": 9, "round_count": 2, "precision": 0.3755, "recall": 0.4875, "f1": 0.4234, "roc_auc": 0.8896},
+    {"detector_version": 10, "round_count": 2, "precision": 0.2443, "recall": 0.2938, "f1": 0.2663, "roc_auc": 0.8836}
+  ],
+  "notes": [
+    "Family coverage reached 6/7 approved families (merchant_abuse was never sampled this seed because the weakness-weighted adaptive controller kept redirecting toward other families it judged weaker).",
+    "Detector-version F1 trend across the run is noisy rather than cleanly monotonic; later rounds mixed harder/more-novel families (social_engineering at high novelty) which pulled aggregate F1 down toward the end.",
+    "class_weight=balanced, generator_epochs=50, in-sample FPR-ceiling threshold calibration, and per-family fidelity EMA smoothing were all validated locally and via targeted Kaggle diagnostics before this run."
+  ]
+}
