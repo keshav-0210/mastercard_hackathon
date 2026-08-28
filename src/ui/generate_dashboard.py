@@ -62,6 +62,7 @@ def render_chart_cards() -> str:
           </div>
           <p class="chart-desc">{spec['desc']}</p>
           <canvas id="chart-{spec['key']}" width="560" height="260"></canvas>
+          <p class="chart-legend">Solid: per-round value &middot; Dashed: trailing 3-round average</p>
         </div>""")
     return "\n".join(cards)
 
@@ -190,6 +191,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   .chart-card { background:#fff; border:1px solid #e7e7e7; border-top: 4px solid var(--mc-blue); border-radius:14px; padding:18px 18px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
   .chart-card-head { display:flex; align-items:center; gap:10px; }
   .chart-card-head h3 { margin:0; font-size:15px; color: var(--mc-dark); }
+  .chart-legend { margin:6px 0 0; font-size:11px; color:#8a8a8a; }
   .badge { color:#fff; font-size:10px; font-weight:800; letter-spacing:1px; padding:3px 8px; border-radius:6px; }
   .chart-desc { font-size:12.5px; color: var(--mc-muted); margin: 8px 0 4px; line-height:1.5; }
   canvas { width: 100%; height: auto; }
@@ -380,8 +382,16 @@ function drawLineChart(canvas, series, spec) {
   ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
 
   ctx.fillStyle = '#7a7a7a'; ctx.textAlign = 'center'; ctx.font = '10px Arial';
-  const step = Math.max(1, Math.ceil(xs.length / 8));
-  xs.forEach((x, i) => { if (i % step === 0 || i === xs.length - 1) ctx.fillText(String(x), xScale(x), H - pad.b + 13); });
+  const step = Math.max(1, Math.ceil(xs.length / 7));
+  let lastLabeledIndex = -Infinity;
+  xs.forEach((x, i) => {
+    const isStepTick = i % step === 0;
+    const isFarEnoughLast = i === xs.length - 1 && (i - lastLabeledIndex) >= Math.ceil(step / 2);
+    if (isStepTick || isFarEnoughLast) {
+      ctx.fillText(String(x), xScale(x), H - pad.b + 13);
+      lastLabeledIndex = i;
+    }
+  });
 
   ctx.fillStyle = '#444'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
   ctx.fillText('Number of Rounds', pad.l + (W - pad.l - pad.r) / 2, H - 6);
@@ -407,6 +417,28 @@ function drawLineChart(canvas, series, spec) {
     if (p.y === null || p.y === undefined) return;
     ctx.beginPath(); ctx.arc(xScale(p.x), yScale(p.y), 2.6, 0, Math.PI * 2); ctx.fill();
   });
+
+  // Trailing 3-round rolling average, drawn as a dashed overlay. This does not alter any stored
+  // metric value -- it only smooths the visual trend line since raw per-round values are noisy
+  // (each round evaluates a different attack family with a different intrinsic difficulty).
+  const windowSize = 3;
+  const rolling = series.map((p, i) => {
+    if (p.y === null || p.y === undefined) return { x: p.x, y: null };
+    const windowVals = series.slice(Math.max(0, i - windowSize + 1), i + 1)
+      .map(q => q.y).filter(v => v !== null && v !== undefined);
+    const avg = windowVals.reduce((a, b) => a + b, 0) / windowVals.length;
+    return { x: p.x, y: avg };
+  });
+  ctx.strokeStyle = color; ctx.globalAlpha = 0.55; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  let rollingStarted = false;
+  rolling.forEach(p => {
+    if (p.y === null || p.y === undefined) return;
+    const X = xScale(p.x), Y = yScale(p.y);
+    if (!rollingStarted) { ctx.moveTo(X, Y); rollingStarted = true; } else { ctx.lineTo(X, Y); }
+  });
+  ctx.stroke();
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
 }
 
 function renderAll() {

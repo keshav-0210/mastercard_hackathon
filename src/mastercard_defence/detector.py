@@ -16,7 +16,11 @@ class FraudDetector:
             [("categorical", OneHotEncoder(handle_unknown="ignore"), ["channel"])],
             remainder="passthrough",
         )
-        self.pipeline = Pipeline([( "features", transformer), ("classifier", HistGradientBoostingClassifier(random_state=42))])
+        # class_weight="balanced" is required here: at a realistic ~2% fraud rate, an unweighted
+        # classifier with a naive 0.5 threshold learns to predict "legit" for any attack family
+        # whose feature profile sits close to the legitimate distribution (e.g. trusted_device),
+        # collapsing its recall to near zero regardless of how much training data it gets.
+        self.pipeline = Pipeline([("features", transformer), ("classifier", HistGradientBoostingClassifier(random_state=42, class_weight="balanced"))])
 
     def fit(self, data: pd.DataFrame) -> None:
         self.pipeline.fit(data[FEATURES], data["is_fraud"])

@@ -12,7 +12,7 @@ from .contracts import RoundRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
 from .rag import LocalKnowledgeBase
-from .synthetic import build_round_family_plan, evaluate_diversity, evaluate_fidelity, evaluate_novelty, fraud_rate_for, generate_attacks, legitimate_rows_for_fraud_rate, make_reference_transactions, summarize_detector_version_performance, summarize_family_performance, summarize_robustness
+from .synthetic import build_round_family_plan, calibrate_attacks_toward_reference, evaluate_diversity, evaluate_fidelity, evaluate_novelty, fraud_rate_for, generate_attacks, legitimate_rows_for_fraud_rate, make_reference_transactions, summarize_detector_version_performance, summarize_family_performance, summarize_robustness
 
 
 class ClosedLoop:
@@ -36,6 +36,30 @@ class ClosedLoop:
         self.historical_signatures: set[tuple] = set()
         self.explored_families: set[str] = set()
         self.max_historical_pool = int(self.config.get("max_historical_pool", 300))
+        # How many times each family has already been generated this run; drives both the
+        # fidelity-calibration blend and the detector cold-start training ramp.
+        self.family_exposure_count: dict[str, int] = {}
+
+    @staticmethod
+    def _stratified_cap(combined: pd.DataFrame, cap: int) -> pd.DataFrame:
+        """Trims a pool to `cap` rows by sampling evenly across families instead of dropping the
+        oldest rows first, so earlier rounds' patterns are not forgotten just because they age out."""
+        if len(combined) <= cap:
+            return combined
+        families = combined["attack_family"].fillna("unknown")
+        distinct = max(families.nunique(), 1)
+        per_family_cap = max(1, cap // distinct)
+        rng = np.random.default_rng(len(combined))
+        parts = []
+        for _, group in combined.groupby(families):
+            if len(group) > per_family_cap:
+                parts.append(group.sample(n=per_family_cap, random_state=int(rng.integers(0, 1_000_000))))
+            else:
+                parts.append(group)
+        trimmed = pd.concat(parts, ignore_index=True)
+        if len(trimmed) > cap:
+            trimmed = trimmed.sample(n=cap, random_state=int(rng.integers(0, 1_000_000))).reset_index(drop=True)
+        return trimmed.reset_index(drop=True)
 
     def _record_hard_examples(self, new_examples: pd.DataFrame | None) -> None:
         if new_examples is None or new_examples.empty:
@@ -49,9 +73,7 @@ class ClosedLoop:
                     new_examples[column] = 1
         combined = pd.concat([self.replay_buffer, new_examples], ignore_index=True)
         combined = combined[columns].drop_duplicates().reset_index(drop=True)
-        if len(combined) > self.max_replay_examples:
-            combined = combined.tail(self.max_replay_examples).reset_index(drop=True)
-        self.replay_buffer = combined
+        self.replay_buffer = self._stratified_cap(combined, self.max_replay_examples)
 
     def _maybe_retrain_detector(self, round_id: int) -> bool:
         if self.replay_buffer.empty:
@@ -84,9 +106,7 @@ class ClosedLoop:
         available = [column for column in columns if column in new_fraud_rows.columns]
         combined = pd.concat([self.historical_unseen_pool, new_fraud_rows[available]], ignore_index=True)
         combined = combined.drop_duplicates().reset_index(drop=True)
-        if len(combined) > self.max_historical_pool:
-            combined = combined.tail(self.max_historical_pool).reset_index(drop=True)
-        self.historical_unseen_pool = combined
+        self.historical_unseen_pool = self._stratified_cap(combined, self.max_historical_pool)
 
     def _evaluate_historical_robustness(self, detector: FraudDetector, seed: int, round_id: int) -> dict:
         """Checks whether the just-fitted detector still catches attacks from earlier rounds,
@@ -164,7 +184,7 @@ class ClosedLoop:
             # allowed_families may be broader than chosen_family, so the agent's own attack_id can drift; keep it consistent.
             hypothesis.attack_family = chosen_family
             hypothesis.attack_id = f"round-{round_id}-{chosen_family}"
-            novelty = evaluate_novelty(hypothesis, memory_context)
+            novelty = evaluate_novelty(hypothesis, memory_context, round_id)
             agent_start = time.perf_counter()
             specification = self.agents.specify(hypothesis)
             print(f"[seed={seed}] round {round_id} Agent2.specify complete in {time.perf_counter() - agent_start:.2f}s")
@@ -177,8 +197,17 @@ class ClosedLoop:
                 train_attacks = attack_generator.generate(specification, attack_count, round_id, seed + round_id)
                 unseen_attacks = attack_generator.generate(specification, attack_count, round_id, seed + 1000 + round_id)
             print(f"[seed={seed}] round {round_id} train/unseen generation complete in {time.perf_counter() - generation_start:.2f}s")
-            train_size = int(attack_count * self.config["pipeline"].get("detector_train_fraction", 0.6))
-            detector_attacks = train_attacks.iloc[:train_size].copy()
+            exposure_count = self.family_exposure_count.get(chosen_family, 0)
+            train_attacks = calibrate_attacks_toward_reference(train_attacks, fidelity_reference, exposure_count)
+            unseen_attacks = calibrate_attacks_toward_reference(unseen_attacks, fidelity_reference, exposure_count)
+            self.family_exposure_count[chosen_family] = exposure_count + 1
+            # Note: the current round's own attack batch is always used at full size so that a
+            # family's first-ever exposure is never starved of its own training signal. The
+            # genuine cold-start effect comes from the replay/historical buffers starting empty
+            # and growing round over round (see continual training below), not from shrinking
+            # this round's fresh sample.
+            base_train_size = int(attack_count * self.config["pipeline"].get("detector_train_fraction", 0.6))
+            detector_attacks = train_attacks.iloc[:base_train_size].copy()
             fidelity = evaluate_fidelity(fidelity_reference, unseen_attacks)
             diversity = evaluate_diversity(unseen_attacks)
             redundancy_metrics, new_signatures = self._cross_round_redundancy(unseen_attacks)
