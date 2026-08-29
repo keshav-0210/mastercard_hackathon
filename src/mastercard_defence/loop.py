@@ -45,23 +45,21 @@ class ClosedLoop:
 
     @staticmethod
     def _stratified_cap(combined: pd.DataFrame, cap: int) -> pd.DataFrame:
-        """Trims a pool to `cap` rows by sampling evenly across families instead of dropping the
-        oldest rows first, so earlier rounds' patterns are not forgotten just because they age out."""
+        """Trims a pool to `cap` rows evenly across families, keeping each family's most recently
+        added rows rather than a random historical mix -- so replay/historical training data tracks
+        the generator's current (typically harder, higher-fidelity) output instead of being diluted
+        by stale, easier examples from early rounds."""
         if len(combined) <= cap:
             return combined
         families = combined["attack_family"].fillna("unknown")
         distinct = max(families.nunique(), 1)
         per_family_cap = max(1, cap // distinct)
-        rng = np.random.default_rng(len(combined))
         parts = []
         for _, group in combined.groupby(families):
-            if len(group) > per_family_cap:
-                parts.append(group.sample(n=per_family_cap, random_state=int(rng.integers(0, 1_000_000))))
-            else:
-                parts.append(group)
+            parts.append(group.tail(per_family_cap) if len(group) > per_family_cap else group)
         trimmed = pd.concat(parts, ignore_index=True)
         if len(trimmed) > cap:
-            trimmed = trimmed.sample(n=cap, random_state=int(rng.integers(0, 1_000_000))).reset_index(drop=True)
+            trimmed = trimmed.tail(cap).reset_index(drop=True)
         return trimmed.reset_index(drop=True)
 
     def _record_hard_examples(self, new_examples: pd.DataFrame | None) -> None:
@@ -87,13 +85,9 @@ class ClosedLoop:
         return False
 
     def _target_fpr_for_round(self, round_id: int) -> float:
-        start = float(self.config.get("detector_target_fpr_start", 0.02))
-        floor = float(self.config.get("detector_target_fpr_floor", start))
-        hardening_rounds = max(int(self.config.get("detector_fpr_hardening_rounds", 1)), 1)
-        if not 0.0 < floor <= start < 1.0:
-            raise ValueError("detector FPR targets must satisfy 0 < floor <= start < 1")
-        progress = min(max(round_id - 1, 0) / max(hardening_rounds - 1, 1), 1.0)
-        return start + (floor - start) * progress
+        """Flat false-positive-rate operating target: not a hackathon requirement, so the detector
+        is held to one constant ceiling every round instead of tightening it over time."""
+        return float(self.config.get("detector_target_fpr", 0.02))
 
     def _cross_round_redundancy(self, attacks: pd.DataFrame) -> tuple[dict, set]:
         """Compares this round's generated rows against every prior round's rows to catch

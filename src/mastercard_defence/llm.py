@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 from .runtime import require_model
@@ -56,8 +57,38 @@ class SharedLocalLLM:
         start = cleaned.find("{")
         if start < 0:
             raise ValueError("The local model response did not contain a JSON object.")
+
+        candidate = cleaned[start:]
+        in_string = False
+        escape = False
+        depth = 0
+        end_index = None
+        for index, char in enumerate(candidate):
+            if in_string:
+                if escape:
+                    escape = False
+                elif char == "\\":
+                    escape = True
+                elif char == '"':
+                    in_string = False
+            else:
+                if char == '"':
+                    in_string = True
+                elif char == "{":
+                    depth += 1
+                elif char == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end_index = index + 1
+                        break
+        if end_index is None:
+            raise ValueError("The local model response did not contain a complete JSON object.")
+
+        candidate = candidate[:end_index]
+        candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
+
         try:
-            parsed, _ = json.JSONDecoder().raw_decode(cleaned[start:])
+            parsed = json.loads(candidate)
         except json.JSONDecodeError as exc:
             raise ValueError(f"The local model returned invalid JSON: {exc}") from exc
         if not isinstance(parsed, dict):

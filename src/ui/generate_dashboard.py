@@ -45,6 +45,55 @@ def load_json(pattern: str, default):
     return json.loads(path.read_text(encoding="utf-8")), path.name
 
 
+DETECTOR_MODEL_NAME = "HistGradientBoostingClassifier"
+AGENT_BACKEND_LABELS = {
+    "QwenAgents": "Qwen2.5-7B-Instruct (local GGUF)",
+    "HeuristicAgents": "Heuristic rules (no LLM)",
+}
+GENERATOR_MODEL_LABELS = {
+    "conditional_ctgan": "CTGAN (conditional, learned)",
+    "ctgan": "CTGAN (conditional, learned)",
+    "procedural": "Procedural sampling (no learned model)",
+}
+
+
+def discover_experiments() -> dict[str, dict]:
+    """Finds every adaptive_v2_metrics_dump_<timestamp>.json under artifacts/ and pairs each with
+    its matching summary file (if present), so the dashboard can offer a run selector instead of
+    only ever showing the single latest run."""
+    experiments: dict[str, dict] = {}
+    for metrics_path in sorted(ARTIFACTS.glob("adaptive_v2_metrics_dump_*.json")):
+        run_stamp = metrics_path.stem.removeprefix("adaptive_v2_metrics_dump_")
+        metrics = normalize_metrics(json.loads(metrics_path.read_text(encoding="utf-8")))
+        summary_path = ARTIFACTS / f"adaptive_v2_summary_{run_stamp}.json"
+        summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
+        families_explored = summary.get("families_explored") or sorted({row["attack_family"] for row in metrics if row.get("attack_family")})
+        families_missing = summary.get("families_never_reached") or []
+        rounds = summary.get("rounds", len(metrics))
+        detector_mode = summary.get("detector_mode", "n/a")
+        agent_backend = summary.get("agent_backend", "n/a")
+        generator_backend = summary.get("generator_backend", "n/a")
+        seed_count = summary.get("seed_count", "n/a")
+        fraud_rate_target = summary.get("fraud_rate_target")
+        label = f"{rounds}-round \u00b7 {agent_backend} + {generator_backend} \u00b7 {detector_mode} ({run_stamp})"
+        experiments[run_stamp] = {
+            "label": label,
+            "metrics": metrics,
+            "rounds": rounds,
+            "seed_count": seed_count,
+            "detector_mode": detector_mode,
+            "detector_model": DETECTOR_MODEL_NAME,
+            "agent_backend": AGENT_BACKEND_LABELS.get(agent_backend, agent_backend),
+            "generator_backend": generator_backend,
+            "generator_model": GENERATOR_MODEL_LABELS.get(generator_backend, "n/a"),
+            "fraud_rate_target": f"{fraud_rate_target:.1%}" if isinstance(fraud_rate_target, (int, float)) else "n/a",
+            "families_explored": ", ".join(families_explored) or "n/a",
+            "families_missing": ", ".join(families_missing) or "none",
+            "source": f"{metrics_path.name} / {summary_path.name if summary_path.exists() else 'n/a'}",
+        }
+    return experiments
+
+
 def normalize_metrics(metrics: list[dict]) -> list[dict]:
     """Maps older saved artifacts onto the final UI schema without changing metric values."""
     normalized = []
@@ -78,34 +127,43 @@ def render_chart_cards() -> str:
 
 
 def build() -> None:
-    metrics, metrics_file = load_json("adaptive_v2_metrics_dump_*.json", [])
-    summary, summary_file = load_json("adaptive_v2_summary_*.json", {})
-    metrics = normalize_metrics(metrics)
+    experiments = discover_experiments()
+    if not experiments:
+        experiments = {"none": {"label": "No saved run found", "metrics": [], "rounds": 0, "seed_count": "n/a", "detector_mode": "n/a", "detector_model": DETECTOR_MODEL_NAME, "agent_backend": "n/a", "generator_backend": "n/a", "generator_model": "n/a", "fraud_rate_target": "n/a", "families_explored": "n/a", "families_missing": "none", "source": "n/a"}}
+    default_run_stamp = sorted(experiments)[-1]
+    default_experiment = experiments[default_run_stamp]
 
-    metrics_json = json.dumps(metrics)
+    experiments_json = json.dumps(experiments)
     chart_specs_json = json.dumps(CHART_SPECS)
-    families_explored = ", ".join(summary.get("families_explored", [])) or "n/a"
-    families_missing = ", ".join(summary.get("families_never_reached", [])) or "none"
-    rounds = summary.get("rounds", len(metrics))
-    run_stamp = summary.get("run_timestamp_utc", metrics_file or "n/a")
-    detector_mode = summary.get("detector_mode", "n/a")
+    options_html = "\n".join(
+        f'<option value="{run_stamp}"{" selected" if run_stamp == default_run_stamp else ""}>{experiment["label"]}</option>'
+        for run_stamp, experiment in sorted(experiments.items(), reverse=True)
+    )
 
     html_template = HTML_TEMPLATE
     html_template = html_template.replace("__ARCHITECTURE_IMAGE__", ARCHITECTURE_IMAGE)
-    html_template = html_template.replace("__RUN_STAMP__", str(run_stamp))
-    html_template = html_template.replace("__ROUNDS__", str(rounds))
-    html_template = html_template.replace("__DETECTOR_MODE__", str(detector_mode))
-    html_template = html_template.replace("__FAMILIES_EXPLORED__", families_explored)
-    html_template = html_template.replace("__FAMILIES_MISSING__", families_missing)
+    html_template = html_template.replace("__RUN_STAMP__", str(default_run_stamp))
+    html_template = html_template.replace("__ROUNDS__", str(default_experiment["rounds"]))
+    html_template = html_template.replace("__SEED_COUNT__", str(default_experiment["seed_count"]))
+    html_template = html_template.replace("__DETECTOR_MODE__", str(default_experiment["detector_mode"]))
+    html_template = html_template.replace("__DETECTOR_MODEL__", str(default_experiment["detector_model"]))
+    html_template = html_template.replace("__AGENT_BACKEND__", str(default_experiment["agent_backend"]))
+    html_template = html_template.replace("__GENERATOR_BACKEND__", str(default_experiment["generator_backend"]))
+    html_template = html_template.replace("__GENERATOR_MODEL__", str(default_experiment["generator_model"]))
+    html_template = html_template.replace("__FRAUD_RATE__", str(default_experiment["fraud_rate_target"]))
+    html_template = html_template.replace("__FAMILIES_EXPLORED__", default_experiment["families_explored"])
+    html_template = html_template.replace("__FAMILIES_MISSING__", default_experiment["families_missing"])
+    html_template = html_template.replace("__SOURCE_FILES__", default_experiment["source"])
+    html_template = html_template.replace("__EXPERIMENT_OPTIONS__", options_html)
     html_template = html_template.replace("__CHART_CARDS__", render_chart_cards())
-    html_template = html_template.replace("__METRICS_JSON__", metrics_json)
+    html_template = html_template.replace("__EXPERIMENTS_JSON__", experiments_json)
+    html_template = html_template.replace("__DEFAULT_RUN_STAMP__", json.dumps(default_run_stamp))
     html_template = html_template.replace("__CHART_SPECS_JSON__", chart_specs_json)
-    html_template = html_template.replace("__SOURCE_FILES__", f"{metrics_file or 'n/a'} / {summary_file or 'n/a'}")
 
     OUTPUT_HTML.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_HTML.write_text(html_template, encoding="utf-8")
     print(f"Dashboard written to {OUTPUT_HTML}")
-    print(f"Metrics rows embedded: {len(metrics)} (source: {metrics_file})")
+    print(f"Experiments embedded: {len(experiments)}; default: {default_run_stamp} ({len(default_experiment['metrics'])} rows)")
 
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
@@ -126,13 +184,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
+  html, body { max-width: 100%; overflow-x: hidden; }
   body {
     margin: 0; font-family: "Segoe UI", Helvetica, Arial, sans-serif; color: var(--mc-text);
     background: #ffffff;
   }
   a { color: inherit; }
   .navbar {
-    position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 22px;
+    position: relative; z-index: 50; display: flex; align-items: center; gap: 22px;
     padding: 12px 28px; background: rgba(17,17,17,0.95); backdrop-filter: blur(6px);
   }
   .navbar .brand { display:flex; align-items:center; gap:10px; margin-right: auto; }
@@ -194,9 +253,22 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   .arch-wrap img { max-width: 100%; border-radius: 10px; }
   .arch-caption { font-size: 12.5px; color: var(--mc-muted); margin-top: 10px; }
 
-  .run-meta { display:flex; flex-wrap:wrap; gap: 10px; margin: 18px 0 6px; }
+  .run-meta { display:flex; flex-wrap:wrap; gap: 10px; margin: 12px 0 0; align-items:center; }
   .pill { background:#fff; border:1px solid #e2e2e2; border-radius:999px; padding:6px 14px; font-size:12.5px; color: var(--mc-dark); }
   .pill b { color: var(--mc-red); }
+
+  .run-bar { position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 2px solid var(--mc-red); padding: 10px 8vw; }
+  .run-bar-inner { display:flex; flex-wrap:wrap; align-items:center; gap: 10px 16px; }
+  .run-bar-select { display:flex; align-items:center; gap:8px; min-width:0; max-width:100%; }
+  .run-bar-select label { font-size:10.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color: var(--mc-muted); white-space:nowrap; }
+  .experiment-select { background:#fff; border:2px solid var(--mc-blue); border-radius:6px; padding:5px 10px; font-size:12px; font-weight:700; color: var(--mc-dark); cursor:pointer; width: 380px; max-width: 100%; min-width:0; box-sizing:border-box; text-overflow:ellipsis; }
+  .run-bar-details { display:flex; flex-wrap:wrap; gap: 6px 8px; flex: 1; min-width: 0; }
+  .run-detail { display:flex; align-items:baseline; gap:5px; background:#f7f5f0; border:1px solid #ece7da; border-radius:6px; padding:3px 9px; white-space:nowrap; }
+  .run-detail-label { font-size:9px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color: var(--mc-muted); }
+  .run-detail-value { font-size:11.5px; font-weight:700; color: var(--mc-dark); }
+  .run-bar .run-meta { margin: 6px 0 0; gap: 6px; }
+  .run-bar .pill { padding:4px 11px; font-size:11px; }
+  @media (max-width: 900px) { .run-bar-select { width:100%; } .experiment-select { width:100%; flex:1; } }
 
   .chart-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(420px,1fr)); gap: 22px; margin-top: 28px; }
   .chart-card { background:#fff; border:1px solid #e7e7e7; border-top: 4px solid var(--mc-blue); border-radius:14px; padding:18px 18px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
@@ -217,6 +289,33 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 </style>
 </head>
 <body>
+
+  <div class="run-bar">
+    <div class="run-bar-inner">
+      <div class="run-bar-select">
+        <label for="experiment-select">Experiment run</label>
+        <select id="experiment-select" class="experiment-select">
+__EXPERIMENT_OPTIONS__
+        </select>
+      </div>
+      <div class="run-bar-details">
+        <div class="run-detail"><span class="run-detail-label">Rounds</span><span class="run-detail-value" id="detail-rounds">__ROUNDS__</span></div>
+        <div class="run-detail"><span class="run-detail-label">Seeds</span><span class="run-detail-value" id="detail-seed-count">__SEED_COUNT__</span></div>
+        <div class="run-detail"><span class="run-detail-label">Detector Mode</span><span class="run-detail-value" id="detail-detector-mode">__DETECTOR_MODE__</span></div>
+        <div class="run-detail"><span class="run-detail-label">Detector Model</span><span class="run-detail-value" id="detail-detector-model">__DETECTOR_MODEL__</span></div>
+        <div class="run-detail"><span class="run-detail-label">Agent Backend</span><span class="run-detail-value" id="detail-agent-backend">__AGENT_BACKEND__</span></div>
+        <div class="run-detail"><span class="run-detail-label">Generator Mode</span><span class="run-detail-value" id="detail-generator-backend">__GENERATOR_BACKEND__</span></div>
+        <div class="run-detail"><span class="run-detail-label">Generator Model</span><span class="run-detail-value" id="detail-generator-model">__GENERATOR_MODEL__</span></div>
+        <div class="run-detail"><span class="run-detail-label">Fraud Rate</span><span class="run-detail-value" id="detail-fraud-rate">__FRAUD_RATE__</span></div>
+      </div>
+    </div>
+    <div class="run-meta">
+      <span class="pill">Run: <b id="pill-run-stamp">__RUN_STAMP__</b></span>
+      <span class="pill">Families explored: <b id="pill-families-explored">__FAMILIES_EXPLORED__</b></span>
+      <span class="pill">Not yet reached: <b id="pill-families-missing">__FAMILIES_MISSING__</b></span>
+      <span class="pill">Source: <b id="pill-source">__SOURCE_FILES__</b></span>
+    </div>
+  </div>
 
   <div class="navbar">
     <div class="brand">
@@ -242,9 +341,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     fraud scenarios and a continually-retrained detector defends against them &mdash; with every round's diversity,
     fidelity, novelty and detection metrics captured for full auditability.</p>
     <div class="stat-row">
-      <div class="stat"><div class="n">__ROUNDS__</div><div class="l">Rounds in latest run</div></div>
+      <div class="stat"><div class="n" id="hero-rounds">__ROUNDS__</div><div class="l">Rounds in selected run</div></div>
       <div class="stat"><div class="n">7</div><div class="l">Approved fraud families</div></div>
-      <div class="stat"><div class="n">__DETECTOR_MODE__</div><div class="l">Detector mode</div></div>
+      <div class="stat"><div class="n" id="hero-detector-mode">__DETECTOR_MODE__</div><div class="l">Detector mode</div></div>
       <div class="stat"><div class="n">Qwen2.5-7B</div><div class="l">Agent reasoning model</div></div>
     </div>
     </div>
@@ -315,14 +414,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <div class="section-label">Results</div>
     <h2 class="section-title">Metrics across training rounds</h2>
     <p class="body-text">Every chart below reads <b>value on the Y axis</b> and <b>training round number on the X axis</b>,
-      sourced directly from the latest saved local results file &mdash; regenerating this page after a new run
-      updates every chart automatically, without re-running the pipeline.</p>
-    <div class="run-meta">
-      <span class="pill">Run: <b>__RUN_STAMP__</b></span>
-      <span class="pill">Families explored: <b>__FAMILIES_EXPLORED__</b></span>
-      <span class="pill">Not yet reached: <b>__FAMILIES_MISSING__</b></span>
-      <span class="pill">Source: <b>__SOURCE_FILES__</b></span>
-    </div>
+      sourced directly from the selected saved results file &mdash; regenerating this page after a new run
+      updates the option list automatically, without re-running the pipeline.</p>
     <div class="chart-grid">
 __CHART_CARDS__
     </div>
@@ -351,8 +444,10 @@ __CHART_CARDS__
   </footer>
 
 <script>
-const METRICS = __METRICS_JSON__;
+const EXPERIMENTS = __EXPERIMENTS_JSON__;
 const CHART_SPECS = __CHART_SPECS_JSON__;
+let currentRunStamp = __DEFAULT_RUN_STAMP__;
+let METRICS = (EXPERIMENTS[currentRunStamp] || {}).metrics || [];
 
 function drawLineChart(canvas, series, spec) {
   const ctx = canvas.getContext('2d');
@@ -461,7 +556,31 @@ function renderAll() {
   });
 }
 
-window.addEventListener('load', renderAll);
+function applyExperiment(runStamp) {
+  const experiment = EXPERIMENTS[runStamp];
+  if (!experiment) return;
+  currentRunStamp = runStamp;
+  METRICS = experiment.metrics || [];
+  document.getElementById('pill-run-stamp').textContent = runStamp;
+  document.getElementById('pill-families-explored').textContent = experiment.families_explored;
+  document.getElementById('pill-families-missing').textContent = experiment.families_missing;
+  document.getElementById('pill-source').textContent = experiment.source;
+  document.getElementById('hero-rounds').textContent = experiment.rounds;
+  document.getElementById('hero-detector-mode').textContent = experiment.detector_mode;
+  document.getElementById('detail-rounds').textContent = experiment.rounds;
+  document.getElementById('detail-seed-count').textContent = experiment.seed_count;
+  document.getElementById('detail-detector-mode').textContent = experiment.detector_mode;
+  document.getElementById('detail-detector-model').textContent = experiment.detector_model;
+  document.getElementById('detail-agent-backend').textContent = experiment.agent_backend;
+  document.getElementById('detail-generator-backend').textContent = experiment.generator_backend;
+  document.getElementById('detail-generator-model').textContent = experiment.generator_model;
+  document.getElementById('detail-fraud-rate').textContent = experiment.fraud_rate_target;
+  renderAll();
+}
+
+document.getElementById('experiment-select').addEventListener('change', (event) => applyExperiment(event.target.value));
+
+window.addEventListener('load', () => applyExperiment(currentRunStamp));
 window.addEventListener('resize', renderAll);
 
 const sections = document.querySelectorAll('section[id]');

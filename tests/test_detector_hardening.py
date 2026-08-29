@@ -3,6 +3,7 @@ import pytest
 
 from mastercard_defence.contracts import AttackSpecification
 from mastercard_defence.detector import FraudDetector
+from mastercard_defence.llm import SharedLocalLLM
 from mastercard_defence.loop import ClosedLoop, load_config
 from mastercard_defence.synthetic import ALLOWED_FAMILIES, build_round_family_plan, evaluate_diversity, generate_attacks
 
@@ -54,20 +55,27 @@ def test_threshold_calibration_uses_separate_legitimate_data() -> None:
     assert float((expected >= detector.threshold).mean()) <= 0.02
 
 
-def test_detector_fpr_target_hardens_without_benchmark_feedback() -> None:
+def test_detector_fpr_target_is_flat_across_rounds() -> None:
     config = load_config("config/default.yaml")
     config["paths"]["memory_db"] = "artifacts/test_fpr_schedule_memory.sqlite"
-    config["detector_target_fpr_start"] = 0.02
-    config["detector_target_fpr_floor"] = 0.019
-    config["detector_fpr_hardening_rounds"] = 50
+    config["detector_target_fpr"] = 0.02
     loop = ClosedLoop(config)
     try:
         assert loop._target_fpr_for_round(1) == pytest.approx(0.02)
-        assert loop._target_fpr_for_round(25) == pytest.approx(0.02 - 0.001 * 24 / 49)
-        assert loop._target_fpr_for_round(50) == pytest.approx(0.019)
-        assert loop._target_fpr_for_round(100) == pytest.approx(0.019)
+        assert loop._target_fpr_for_round(25) == pytest.approx(0.02)
+        assert loop._target_fpr_for_round(50) == pytest.approx(0.02)
+        assert loop._target_fpr_for_round(100) == pytest.approx(0.02)
     finally:
         loop.close()
+
+
+def test_parse_json_salvages_commas_and_prefix_text() -> None:
+    payload = 'Here is the result:\n{"recommended_family": "low_and_slow", "reason": "velocity weakness", "confidence": 0.85,}\n'
+
+    parsed = SharedLocalLLM._parse_json(payload)
+
+    assert parsed["recommended_family"] == "low_and_slow"
+    assert parsed["confidence"] == pytest.approx(0.85)
 
 
 def test_family_generation_and_diversity_metrics_are_more_realistic() -> None:
