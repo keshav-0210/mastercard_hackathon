@@ -22,18 +22,14 @@ OUTPUT_HTML = ARTIFACTS / "submission_dashboard.html"
 ARCHITECTURE_IMAGE = "architecture_diagram.png"
 
 CHART_SPECS = [
-    {"key": "f1", "title": "Detector F1 Score", "team": "blue", "desc": "Balance of precision and recall for the current round's unseen attack batch.", "yMin": 0, "yMax": 1},
-    {"key": "recall", "title": "Detector Recall", "team": "blue", "desc": "Fraction of fraud successfully caught by the detector.", "yMin": 0, "yMax": 1},
-    {"key": "precision", "title": "Detector Precision", "team": "blue", "desc": "Fraction of flagged transactions that are truly fraud.", "yMin": 0, "yMax": 1},
-    {"key": "roc_auc", "title": "ROC-AUC", "team": "blue", "desc": "Overall discrimination between fraud and legitimate transactions.", "yMin": 0.85, "yMax": 1},
-    {"key": "false_positive_rate", "title": "False Positive Rate", "team": "blue", "desc": "How often legitimate payments are incorrectly flagged (lower is better).", "yMin": 0, "yMax": None},
-    {"key": "historical_robustness_f1", "title": "Historical Attack Robustness (F1)", "team": "blue", "desc": "Whether the current detector version still catches fraud patterns from earlier rounds.", "yMin": 0, "yMax": 1},
-    {"key": "attack_novelty_score", "title": "Attack Novelty", "team": "red", "desc": "How different each round's attack hypothesis is from prior Attack Memory context.", "yMin": 0, "yMax": 1},
-    {"key": "attack_fidelity_behavioural_plausibility", "title": "Attack Fidelity (Behavioural Plausibility)", "team": "red", "desc": "How realistically generated attacks resemble reference payment behaviour.", "yMin": 0, "yMax": 1},
-    {"key": "family_coverage_cumulative_ratio", "title": "7-Family Coverage (Cumulative)", "team": "red", "desc": "Share of the seven approved fraud families explored so far in the run.", "yMin": 0, "yMax": 1},
-    {"key": "variant_unique_ratio", "title": "Cross-Round Variant Uniqueness", "team": "red", "desc": "Share of this round's attacks that are not near-duplicates of earlier rounds' attacks.", "yMin": 0, "yMax": 1},
-    {"key": "attack_diversity_channel_entropy", "title": "Attack Channel Diversity", "team": "red", "desc": "Normalized entropy of channel usage (web / mobile / card-present) within the round's attacks.", "yMin": 0, "yMax": 1},
-    {"key": "attack_difficulty_score", "title": "Attack Difficulty", "team": "red", "desc": "1 - recall for the round: how hard this round's attacks were for the detector to catch.", "yMin": 0, "yMax": 1},
+  {"key": "blue_team_benchmark_f1", "title": "Detector F1 - Fixed 7-Family Benchmark", "team": "blue", "desc": "Raw per-round F1 plus its trailing 3-round average on the same unseen seven-family benchmark every round.", "yMin": 0, "yMax": 1},
+  {"key": "blue_team_benchmark_recall", "title": "Detector Recall - Fixed 7-Family Benchmark", "team": "blue", "desc": "Raw per-round recall plus its trailing 3-round average on the same unseen seven-family benchmark every round.", "yMin": 0, "yMax": 1},
+  {"key": "blue_team_benchmark_precision", "title": "Detector Precision - Fixed 7-Family Benchmark", "team": "blue", "desc": "Raw per-round precision plus its trailing 3-round average on the same unseen seven-family benchmark every round.", "yMin": 0, "yMax": 1},
+  {"key": "blue_team_benchmark_roc_auc", "title": "Detector AUC-ROC - Fixed 7-Family Benchmark", "team": "blue", "desc": "Raw per-round area under the ROC curve (ROC-AUC) plus its trailing 3-round average on the same unseen seven-family benchmark every round.", "yMin": 0, "yMax": 1},
+  {"key": "blue_team_benchmark_false_positive_rate", "title": "False Positive Rate - Fixed 7-Family Benchmark", "team": "blue", "desc": "Raw per-round false-positive rate plus its trailing 3-round average on the same benchmark; lower is better.", "yMin": 0, "yMax": None},
+  {"key": "attack_novelty_score", "title": "Attack Novelty", "team": "red", "desc": "Raw per-round novelty plus its trailing 3-round average relative to Attack Memory context.", "yMin": 0, "yMax": 1},
+  {"key": "attack_fidelity_behavioural_plausibility", "title": "Attack Fidelity - Behavioural Plausibility", "team": "red", "desc": "Per-family causal fidelity estimate plus its trailing 3-round average; the raw unsmoothed value remains in the metrics JSON.", "yMin": 0, "yMax": 1},
+  {"key": "family_coverage_diversity_ratio", "title": "Fraud-Family Coverage Diversity - Cumulative", "team": "red", "desc": "Cumulative breadth of unique approved fraud families explored, shown as a share of all seven families plus its trailing 3-round average.", "yMin": 0, "yMax": 1},
 ]
 
 
@@ -49,6 +45,20 @@ def load_json(pattern: str, default):
     return json.loads(path.read_text(encoding="utf-8")), path.name
 
 
+def normalize_metrics(metrics: list[dict]) -> list[dict]:
+    """Maps older saved artifacts onto the final UI schema without changing metric values."""
+    normalized = []
+    for source_row in metrics:
+        row = dict(source_row)
+        if row.get("family_coverage_diversity_ratio") is None:
+            row["family_coverage_diversity_ratio"] = row.get("family_coverage_cumulative_ratio")
+        row.pop("family_coverage_cumulative_ratio", None)
+        row.pop("family_coverage_cumulative_count", None)
+        row.pop("attack_diversity_channel_entropy", None)
+        normalized.append(row)
+    return normalized
+
+
 def render_chart_cards() -> str:
     cards = []
     for spec in CHART_SPECS:
@@ -62,7 +72,7 @@ def render_chart_cards() -> str:
           </div>
           <p class="chart-desc">{spec['desc']}</p>
           <canvas id="chart-{spec['key']}" width="560" height="260"></canvas>
-          <p class="chart-legend">Solid: per-round value &middot; Dashed: trailing 3-round average</p>
+          <p class="chart-legend"><b>Solid:</b> raw per-round value &middot; <b>Dashed:</b> trailing 3-round rolling average</p>
         </div>""")
     return "\n".join(cards)
 
@@ -70,6 +80,7 @@ def render_chart_cards() -> str:
 def build() -> None:
     metrics, metrics_file = load_json("adaptive_v2_metrics_dump_*.json", [])
     summary, summary_file = load_json("adaptive_v2_summary_*.json", {})
+    metrics = normalize_metrics(metrics)
 
     metrics_json = json.dumps(metrics)
     chart_specs_json = json.dumps(CHART_SPECS)

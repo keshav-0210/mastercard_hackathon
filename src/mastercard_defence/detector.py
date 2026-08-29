@@ -17,41 +17,20 @@ class FraudDetector:
             [("categorical", OneHotEncoder(handle_unknown="ignore"), ["channel"])],
             remainder="passthrough",
         )
-        # class_weight="balanced" is required here: at a realistic ~2% fraud rate, an unweighted
-        # classifier with a naive 0.5 threshold learns to predict "legit" for any attack family
-        # whose feature profile sits close to the legitimate distribution (e.g. trusted_device),
-        # collapsing its recall to near zero regardless of how much training data it gets.
         self.pipeline = Pipeline([("features", transformer), ("classifier", HistGradientBoostingClassifier(random_state=42, class_weight="balanced"))])
-        # class_weight="balanced" alone over-triggers once attacks are behaviourally close to
-        # legit (high fidelity), pushing false-positive rate up sharply. Rather than a fixed 0.5
-        # cutoff, calibrate an operating-point threshold in-sample on the training data: the
-        # smallest-FPR threshold that keeps FPR under a target ceiling while maximizing F1. This
-        # is standard fraud-detection practice (threshold tuned to a business FPR budget), not a
-        # metric hack, and it never looks at the held-out evaluation data.
         self.target_fpr_ceiling = target_fpr_ceiling
         self.threshold = 0.5
 
-    def fit(self, data: pd.DataFrame) -> None:
+    def fit(self, data: pd.DataFrame, calibration_data: pd.DataFrame | None = None) -> None:
         self.pipeline.fit(data[FEATURES], data["is_fraud"])
-        self._calibrate_threshold(data)
+        self._calibrate_threshold(calibration_data if calibration_data is not None else data[data["is_fraud"] == 0])
 
     def _calibrate_threshold(self, data: pd.DataFrame) -> None:
         probabilities = self.pipeline.predict_proba(data[FEATURES])[:, 1]
-        labels = data["is_fraud"].to_numpy()
-        legitimate_count = max(int((labels == 0).sum()), 1)
-        candidates = np.unique(np.append(probabilities, 0.5))
-        best_threshold = 0.5
-        best_f1 = -1.0
-        for candidate in candidates:
-            predictions = (probabilities >= candidate).astype(int)
-            fpr = float(((predictions == 1) & (labels == 0)).sum() / legitimate_count)
-            if fpr > self.target_fpr_ceiling:
-                continue
-            f1 = f1_score(labels, predictions, zero_division=0)
-            if f1 > best_f1:
-                best_f1 = f1
-                best_threshold = float(candidate)
-        self.threshold = best_threshold
+        if probabilities.size == 0:
+            self.threshold = 0.5
+            return
+        self.threshold = float(np.quantile(probabilities, 1.0 - self.target_fpr_ceiling, method="higher"))
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
         probabilities = self.pipeline.predict_proba(data[FEATURES])[:, 1]

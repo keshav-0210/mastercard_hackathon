@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .agents import ATTACK_FAMILIES, HeuristicAgents, QwenAgents
-from .contracts import RoundRecord
+from .contracts import AttackSpecification, RoundRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
 from .rag import LocalKnowledgeBase
@@ -129,6 +129,35 @@ class ClosedLoop:
             "roc_auc": result["roc_auc"],
         }
 
+    def _build_blue_team_benchmark(self, attack_generator, seed: int, target_fraud_rate: float) -> pd.DataFrame:
+        attack_rows_per_family = int(self.config.get("benchmark_attacks_per_family", 20))
+        attack_parts = []
+        for index, family in enumerate(ATTACK_FAMILIES):
+            specification = AttackSpecification(
+                attack_id=f"benchmark-{family}",
+                attack_family=family,
+                scenario="fixed unseen multi-family benchmark",
+                target_context="synthetic payment security evaluation",
+                temporal_pattern="family conditional",
+                amount_pattern="family conditional",
+                device_pattern="family conditional",
+                beneficiary_pattern="family conditional",
+                evasion_objective="measure detector generalization",
+            )
+            generator_seed = seed + 7000 + index
+            if attack_generator is None:
+                attacks = generate_attacks(specification, attack_rows_per_family, 0, generator_seed)
+            else:
+                attacks = attack_generator.generate(specification, attack_rows_per_family, 0, generator_seed)
+            attack_parts.append(attacks)
+        benchmark_attacks = pd.concat(attack_parts, ignore_index=True)
+        legitimate_rows = legitimate_rows_for_fraud_rate(len(benchmark_attacks), target_fraud_rate)
+        benchmark_legitimate = make_reference_transactions(legitimate_rows, seed + 8000).assign(
+            is_fraud=0,
+            attack_family="legitimate",
+        )
+        return pd.concat([benchmark_legitimate, benchmark_attacks], ignore_index=True)
+
     def run(self, rounds: int | None = None, family_plan: list[str] | None = None, seed: int | None = None, attack_generator=None, detector_mode: str = "static", hard_examples: pd.DataFrame | None = None) -> list[dict]:
         rounds = rounds or self.config["pipeline"]["rounds"]
         seed = self.config["seed"] if seed is None else seed
@@ -141,6 +170,11 @@ class ClosedLoop:
         reference = make_reference_transactions(self.config["pipeline"]["synthetic_transactions"], seed)
         train_reference = make_reference_transactions(legitimate_rows_for_fraud_rate(train_attack_count, target_fraud_rate), seed + 2)
         holdout = make_reference_transactions(legitimate_rows_for_fraud_rate(attack_count, target_fraud_rate), seed + 1)
+        threshold_calibration = make_reference_transactions(
+            int(self.config.get("threshold_calibration_rows", 3000)),
+            seed + 3,
+        ).assign(is_fraud=0, attack_family="legitimate")
+        blue_team_benchmark = self._build_blue_team_benchmark(attack_generator, seed, target_fraud_rate)
         fidelity_reference = reference.reset_index(drop=True)
         results = []
         print(f"[seed={seed}] starting {rounds}-round run with family plan: {family_plan}")
@@ -228,8 +262,8 @@ class ClosedLoop:
             redundancy_metrics, new_signatures = self._cross_round_redundancy(unseen_attacks)
             diversity.update(redundancy_metrics)
             self.explored_families.add(chosen_family)
-            diversity["cumulative_families_explored"] = len(self.explored_families)
-            diversity["cumulative_family_coverage_ratio"] = round(len(self.explored_families) / len(ATTACK_FAMILIES), 4)
+            diversity["family_coverage_diversity_count"] = len(self.explored_families)
+            diversity["family_coverage_diversity_ratio"] = round(len(self.explored_families) / len(ATTACK_FAMILIES), 4)
             training_parts = [train_reference, detector_attacks]
             if detector_mode == "continual":
                 replay_examples = self.replay_buffer.copy()
@@ -249,12 +283,16 @@ class ClosedLoop:
                 training = pd.concat([training, additional_legitimate], ignore_index=True)
             training_fraud_rate = fraud_rate_for(int(training["is_fraud"].sum()), len(training) - int(training["is_fraud"].sum()))
             detector = FraudDetector()
-            detector.fit(training)
+            detector.fit(training, calibration_data=threshold_calibration)
             validation_data = pd.concat([holdout.assign(is_fraud=0), unseen_attacks], ignore_index=True)
             validation_data["attack_family"] = validation_data.get("attack_family", specification.attack_family)
             validation_fraud_rate = fraud_rate_for(int(validation_data["is_fraud"].sum()), len(validation_data) - int(validation_data["is_fraud"].sum()))
             evaluation = detector.evaluate(validation_data)
             evaluation["evaluation_protocol"] = "unseen_attack_rows_and_legitimate_holdout"
+            evaluation["decision_threshold"] = detector.threshold
+            blue_team_evaluation = detector.evaluate(blue_team_benchmark)
+            blue_team_evaluation["evaluation_protocol"] = "fixed_unseen_seven_family_benchmark"
+            evaluation["blue_team_benchmark"] = blue_team_evaluation
             evaluation["train_attack_rows"] = len(detector_attacks)
             evaluation["unseen_attack_rows"] = len(unseen_attacks)
             evaluation["train_reference_rows"] = len(train_reference)
@@ -271,7 +309,8 @@ class ClosedLoop:
                     hard_examples = pd.DataFrame(columns=["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "is_fraud", "attack_family"])
                 if not missed.empty:
                     hard_examples = missed if hard_examples.empty else pd.concat([hard_examples, missed], ignore_index=True).drop_duplicates()
-                self._record_hard_examples(hard_examples)
+                replay_candidates = pd.concat([detector_attacks, missed], ignore_index=True).drop_duplicates()
+                self._record_hard_examples(replay_candidates)
                 self._maybe_retrain_detector(round_id)
             evaluation["hard_examples_replayed"] = int(len(self.replay_buffer)) if detector_mode == "continual" else int(len(hard_examples)) if hard_examples is not None else 0
             agent_start = time.perf_counter()

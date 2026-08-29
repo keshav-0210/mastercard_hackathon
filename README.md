@@ -1,47 +1,93 @@
 # Mastercard AI Defence Lab
 
-First-cut closed-loop red-team/blue-team payment-security prototype.
+Final Mastercard Innovation Challenge 2026 submission for an adaptive, synthetic-only red-team/blue-team fraud-defence loop.
 
-## Safety and data policy
+## Submission Entry Point
 
-The first iteration uses synthetic transactions only. Do not add real cardholder data, PII, production payment data, confidential material, or data from unauthorized sources. Red-team generation is offline experimentation and must not target live systems, payment infrastructure, or third parties.
+Run [FINAL_SUBMISSION.ipynb](FINAL_SUBMISSION.ipynb) from top to bottom in a Kaggle GPU notebook. It performs the complete workflow:
 
-## Local quick start
+1. Clones or updates this repository.
+2. Installs the CTGAN and CUDA-enabled llama.cpp dependencies.
+3. Verifies CUDA, llama.cpp GPU offload, and both Qwen2.5-7B GGUF shards.
+4. Runs a five-round Qwen+CTGAN qualification gate.
+5. Runs one independent 50-round experiment only when the gate passes.
+6. Writes raw results, metrics, trend evidence, configuration, package versions, and logs.
+7. Builds and verifies the HTML dashboard.
+8. Creates a checksummed submission zip and downloadable dashboard copy.
+
+The repository revision pulled by Kaggle must contain this notebook, `src/mastercard_defence/submission.py`, and the final dashboard generator before the run starts.
+
+## Kaggle Prerequisites
+
+- Enable a Kaggle GPU accelerator.
+- Attach the private dataset containing both matching Qwen2.5-7B-Instruct Q4_K_M GGUF shards.
+- Enable internet access so the notebook can clone the repository and install packages.
+- No API key or runtime secret is required.
+
+The notebook refuses to fall back to CPU or `HeuristicAgents`. Paths and the repository URL can be overridden with `MASTERCARD_PROJECT_DIR`, `KAGGLE_INPUT_DIR`, `SUBMISSION_DIR`, and `MASTERCARD_REPOSITORY_URL`.
+
+## Experiment Protocol
+
+The closed loop is:
+
+`Reviewed RAG + Attack Memory -> Agent1 -> Agent2 -> CTGAN -> Detector -> Agent3 -> Attack Memory -> Agent1`
+
+All transactions are generated synthetically. Each round uses disjoint detector-training and current-family evaluation attacks. Longitudinal blue-team metrics use one fixed unseen benchmark containing all seven approved fraud families, reused unchanged across rounds. The detector operating threshold is calibrated on a separate legitimate-only holdout, not replay data or benchmark labels.
+
+The detector retrains continually with representative replay and prior misses. The target synthetic fraud rate is 2%, within the required 1-3% range.
+
+## Trend Gates
+
+The five-round gate compares the first two and last two fixed-benchmark windows and requires:
+
+- Precision, Recall, F1, and ROC-AUC to increase with positive linear slopes.
+- False-positive rate to decrease with a negative linear slope.
+
+The 50-round assessment compares the first and last ten rounds and applies the same blue-team directions. It also requires increasing attack fidelity, complete non-decreasing Family Coverage Diversity, and sustained final-window attack novelty. Failed runs retain raw diagnostic artifacts but cannot generate a submission-ready dashboard. Metrics are never rewritten to force a pass.
+
+## Metrics
+
+- **Precision, Recall, F1:** fixed seven-family unseen benchmark.
+- **AUC-ROC / ROC-AUC:** calculated from fraud probability scores, not class predictions.
+- **False-positive rate:** fixed benchmark; lower is better.
+- **Attack Novelty:** structured distance from prior Attack Memory context.
+- **Attack Fidelity:** behavioural plausibility against the synthetic reference distribution.
+- **Family Coverage Diversity:** cumulative proportion of the seven approved fraud families explored.
+
+Attack-channel diversity is not exported or displayed. Dashboard solid lines are stored per-round values; dashed lines are trailing three-round visualization averages.
+
+## Outputs
+
+Successful runs write timestamped artifacts under `/kaggle/working/mastercard_hackathon/artifacts/` and a downloadable bundle under `/kaggle/working/`:
+
+- `adaptive_v2_results_<timestamp>.json`
+- `adaptive_v2_metrics_dump_<timestamp>.json`
+- `adaptive_v2_metrics_dump_<timestamp>.csv`
+- `adaptive_v2_summary_<timestamp>.json`
+- `adaptive_v2_config_<timestamp>.json`
+- `adaptive_v2_package_versions_<timestamp>.json`
+- `adaptive_v2_run_<timestamp>.log`
+- `submission_dashboard_<timestamp>.html`
+- `manifest_<timestamp>.json`
+- `mastercard_submission_<timestamp>.zip`
+
+The local dashboard source is [src/ui/generate_dashboard.py](src/ui/generate_dashboard.py). The generated local copy is [artifacts/submission_dashboard.html](artifacts/submission_dashboard.html).
+
+## Local Validation
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-$env:PYTHONPATH = "$PWD\src"
-streamlit run app.py
+.\.venv\Scripts\python.exe -m pip install -e ".[tests]"
+.\.venv\Scripts\python.exe -m pytest -q tests
+.\.venv\Scripts\python.exe src\ui\generate_dashboard.py
 ```
 
-The first local demo uses deterministic agent fallbacks so the pipeline can be tested before the local model is installed. The shared Qwen GGUF model is configured in `config/default.yaml`; the current Q4_K_M distribution is two matching GGUF shards, and both must remain in `models/` before the model loader is used.
+Local tests do not claim to reproduce the Kaggle Qwen+CTGAN GPU run.
 
-## Kaggle GPU
+## Cleanup
 
-The local VS Code checkout is the source of truth, but code that uses the Kaggle model or Tesla T4 must execute in the Kaggle kernel. In VS Code, connect the notebook to the active Kaggle Jupyter server, clone or sync this repository into `/kaggle/working`, and run:
+The final notebook prints a cleanup dry run. Set `CONFIRM_SUBMISSION_CLEANUP=1` only after reviewing it. Cleanup is allowlisted to generated caches, temporary gate databases, and obsolete adaptive-v2 outputs; source, data, rules, the final notebook, README, current evidence, and dashboards are protected.
 
-```python
-%run scripts/kaggle_bootstrap.py
-from mastercard_defence.runtime import require_cuda_for_heavy_workload
-require_cuda_for_heavy_workload()
-```
+## Safety
 
-The bootstrap discovers both GGUF shards under `/kaggle/input`, sets `RUN_MODE=KAGGLE_GPU`, and sets `MODEL_PATH` without downloading anything. `llama-cpp-python` then uses `n_gpu_layers=-1` automatically in Kaggle mode. GPU-dependent commands must check CUDA availability and stop if the Kaggle GPU session is not enabled. Heavy neural generator work belongs in Kaggle; local execution remains for orchestration and lightweight tests.
-
-### VS Code-only execution workflow
-
-1. Keep editing `.py` files in this workspace.
-2. Push the repository to GitHub or sync the changed files into `/kaggle/working` from the connected Kaggle kernel.
-3. Attach the private model Dataset and enable the Kaggle GPU accelerator.
-4. In the VS Code notebook connected to the Kaggle kernel, run the bootstrap cell above.
-5. Execute project files with `%run scripts/...py` or import modules from `src`.
-
-Running a local Python process cannot directly access `/kaggle/input` or the Tesla T4. A remote Kaggle kernel connection is therefore required while keeping VS Code as the editor and execution interface.
-
-## Closed-loop path
-
-`Reviewed public RAG + Attack Memory -> Agent 1 -> Agent 2 -> Generator -> Fidelity + Diversity + Detector -> Agent 3 -> Attack Memory -> Agent 1`
-
-The configured protocol selects and evaluates one of seven approved families per round and evaluates unseen attack rows against a legitimate holdout. Detector-training attacks are separate from evaluation attacks, and the fidelity report includes amount moments, behavioural signal deltas, and channel coverage. Agent 1 receives a round-specific query built from the previous Attack Memory weakness/recommendation, and the allowlisted public summaries are retrieved again for that query on every round. Each round also records an internal novelty score based on structured similarity to prior hypotheses. The detector split targets a two-percent synthetic fraud rate, within the requested one-to-three-percent range.
+Do not add real cardholder data, PII, production payment data, confidential material, or unauthorized sources. Red-team generation is offline and must not target live systems, payment infrastructure, or third parties.

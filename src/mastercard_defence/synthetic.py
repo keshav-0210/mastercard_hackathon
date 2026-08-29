@@ -214,10 +214,6 @@ def evaluate_fidelity(reference: pd.DataFrame, attacks: pd.DataFrame) -> dict:
 
 def evaluate_diversity(attacks: pd.DataFrame) -> dict:
     numeric = attacks[["amount", "hour", "device_change", "beneficiary_change", "velocity_24h"]]
-    channel_counts = attacks["channel"].value_counts(normalize=True)
-    entropy = 0.0
-    if not channel_counts.empty:
-        entropy = -sum((p * np.log2(p)) for p in channel_counts if p > 0)
     family_count = max(attacks["attack_family"].nunique(), 1)
     return {
         "attack_family_count": int(attacks["attack_family"].nunique()),
@@ -225,7 +221,6 @@ def evaluate_diversity(attacks: pd.DataFrame) -> dict:
         "unique_row_ratio": round(float(attacks.drop_duplicates().shape[0] / max(len(attacks), 1)), 4),
         "numeric_feature_mean_count": int(numeric.nunique().mean()),
         "family_coverage_ratio": round(float(family_count / len(ALLOWED_FAMILIES)), 4),
-        "channel_entropy": round(float(entropy / max(np.log2(len(CHANNELS)), 1e-9)), 4),
     }
 
 
@@ -387,6 +382,7 @@ def build_metrics_dump(results: list[dict]) -> list[dict]:
         diversity = result.get("diversity", {}) or {}
         novelty = result.get("novelty", {}) or {}
         historical = detection.get("historical_robustness", {}) or {}
+        blue_team = detection.get("blue_team_benchmark", {}) or {}
         specification = result.get("specification")
         rows.append(
             {
@@ -394,14 +390,13 @@ def build_metrics_dump(results: list[dict]) -> list[dict]:
                 "attack_family": getattr(specification, "attack_family", None),
                 "detector_version": detection.get("detector_version"),
                 # Red Team
-                "attack_diversity_channel_entropy": diversity.get("channel_entropy"),
                 "attack_diversity_unique_row_ratio": diversity.get("unique_row_ratio"),
                 "attack_fidelity_behavioural_plausibility": fidelity.get("behavioural_plausibility"),
                 "attack_fidelity_behavioural_plausibility_raw": fidelity.get("behavioural_plausibility_raw"),
                 "attack_novelty_score": novelty.get("novelty_score"),
                 "attack_difficulty_score": detection.get("attack_difficulty_score"),
-                "family_coverage_cumulative_ratio": diversity.get("cumulative_family_coverage_ratio"),
-                "family_coverage_cumulative_count": diversity.get("cumulative_families_explored"),
+                "family_coverage_diversity_ratio": diversity.get("family_coverage_diversity_ratio"),
+                "family_coverage_diversity_count": diversity.get("family_coverage_diversity_count"),
                 "variant_redundancy_ratio": diversity.get("cross_round_redundancy_ratio"),
                 "variant_unique_ratio": diversity.get("cross_round_unique_ratio"),
                 # Blue Team
@@ -410,6 +405,13 @@ def build_metrics_dump(results: list[dict]) -> list[dict]:
                 "f1": detection.get("f1"),
                 "roc_auc": detection.get("roc_auc"),
                 "false_positive_rate": detection.get("false_positive_rate"),
+                "decision_threshold": detection.get("decision_threshold"),
+                "blue_team_benchmark_precision": blue_team.get("precision"),
+                "blue_team_benchmark_recall": blue_team.get("recall"),
+                "blue_team_benchmark_f1": blue_team.get("f1"),
+                "blue_team_benchmark_roc_auc": blue_team.get("roc_auc"),
+                "blue_team_benchmark_false_positive_rate": blue_team.get("false_positive_rate"),
+                "blue_team_benchmark_protocol": blue_team.get("evaluation_protocol"),
                 "unseen_attack_evaluation_protocol": detection.get("evaluation_protocol"),
                 "historical_robustness_insufficient": historical.get("insufficient_history"),
                 "historical_robustness_precision": historical.get("precision"),

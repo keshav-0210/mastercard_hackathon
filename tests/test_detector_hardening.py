@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from mastercard_defence.contracts import AttackSpecification
 from mastercard_defence.detector import FraudDetector
@@ -28,6 +29,28 @@ def test_detector_evaluate_reports_by_attack_family() -> None:
     assert set(result["by_attack_family"]["low_and_slow"]).issuperset({"precision", "recall", "f1", "support"})
 
 
+def test_threshold_calibration_uses_separate_legitimate_data() -> None:
+    legitimate = pd.DataFrame(
+        [
+            {"amount": 90.0 + index, "hour": index % 24, "device_change": 0, "beneficiary_change": 0, "velocity_24h": 1, "channel": "web", "is_fraud": 0}
+            for index in range(100)
+        ]
+    )
+    fraud = pd.DataFrame(
+        [
+            {"amount": 500.0 + index, "hour": index % 24, "device_change": 1, "beneficiary_change": 1, "velocity_24h": 8, "channel": "mobile", "is_fraud": 1}
+            for index in range(20)
+        ]
+    )
+    detector = FraudDetector(target_fpr_ceiling=0.02)
+    detector.fit(pd.concat([legitimate, fraud], ignore_index=True), calibration_data=legitimate)
+
+    expected = detector.pipeline.predict_proba(legitimate[["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel"]])[:, 1]
+    expected_threshold = float(__import__("numpy").quantile(expected, 0.98, method="higher"))
+
+    assert detector.threshold == pytest.approx(expected_threshold)
+
+
 def test_family_generation_and_diversity_metrics_are_more_realistic() -> None:
     specification = AttackSpecification(
         attack_id="A-001",
@@ -51,9 +74,8 @@ def test_family_generation_and_diversity_metrics_are_more_realistic() -> None:
 
     diversity = evaluate_diversity(attacks)
     assert "family_coverage_ratio" in diversity
-    assert "channel_entropy" in diversity
+    assert "channel_entropy" not in diversity
     assert diversity["family_coverage_ratio"] >= 1.0 / 7
-    assert diversity["channel_entropy"] >= 0.0
 
 
 def test_round_family_scheduler_is_diverse_and_deterministic() -> None:
