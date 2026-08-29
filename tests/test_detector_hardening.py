@@ -46,9 +46,28 @@ def test_threshold_calibration_uses_separate_legitimate_data() -> None:
     detector.fit(pd.concat([legitimate, fraud], ignore_index=True), calibration_data=legitimate)
 
     expected = detector.pipeline.predict_proba(legitimate[["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel"]])[:, 1]
-    expected_threshold = float(__import__("numpy").quantile(expected, 0.98, method="higher"))
+    numpy = __import__("numpy")
+    expected_boundary = float(numpy.quantile(expected, 0.98, method="higher"))
+    expected_threshold = float(numpy.nextafter(expected_boundary, numpy.inf))
 
     assert detector.threshold == pytest.approx(expected_threshold)
+    assert float((expected >= detector.threshold).mean()) <= 0.02
+
+
+def test_detector_fpr_target_hardens_without_benchmark_feedback() -> None:
+    config = load_config("config/default.yaml")
+    config["paths"]["memory_db"] = "artifacts/test_fpr_schedule_memory.sqlite"
+    config["detector_target_fpr_start"] = 0.02
+    config["detector_target_fpr_floor"] = 0.019
+    config["detector_fpr_hardening_rounds"] = 50
+    loop = ClosedLoop(config)
+    try:
+        assert loop._target_fpr_for_round(1) == pytest.approx(0.02)
+        assert loop._target_fpr_for_round(25) == pytest.approx(0.02 - 0.001 * 24 / 49)
+        assert loop._target_fpr_for_round(50) == pytest.approx(0.019)
+        assert loop._target_fpr_for_round(100) == pytest.approx(0.019)
+    finally:
+        loop.close()
 
 
 def test_family_generation_and_diversity_metrics_are_more_realistic() -> None:

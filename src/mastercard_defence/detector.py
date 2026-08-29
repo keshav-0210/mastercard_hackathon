@@ -30,7 +30,8 @@ class FraudDetector:
         if probabilities.size == 0:
             self.threshold = 0.5
             return
-        self.threshold = float(np.quantile(probabilities, 1.0 - self.target_fpr_ceiling, method="higher"))
+        boundary = float(np.quantile(probabilities, 1.0 - self.target_fpr_ceiling, method="higher"))
+        self.threshold = float(np.nextafter(boundary, np.inf))
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
         probabilities = self.pipeline.predict_proba(data[FEATURES])[:, 1]

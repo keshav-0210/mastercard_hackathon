@@ -86,6 +86,15 @@ class ClosedLoop:
             return True
         return False
 
+    def _target_fpr_for_round(self, round_id: int) -> float:
+        start = float(self.config.get("detector_target_fpr_start", 0.02))
+        floor = float(self.config.get("detector_target_fpr_floor", start))
+        hardening_rounds = max(int(self.config.get("detector_fpr_hardening_rounds", 1)), 1)
+        if not 0.0 < floor <= start < 1.0:
+            raise ValueError("detector FPR targets must satisfy 0 < floor <= start < 1")
+        progress = min(max(round_id - 1, 0) / max(hardening_rounds - 1, 1), 1.0)
+        return start + (floor - start) * progress
+
     def _cross_round_redundancy(self, attacks: pd.DataFrame) -> tuple[dict, set]:
         """Compares this round's generated rows against every prior round's rows to catch
         near-duplicate (redundant) attack variants rather than only within-round uniqueness."""
@@ -282,7 +291,8 @@ class ClosedLoop:
                 )
                 training = pd.concat([training, additional_legitimate], ignore_index=True)
             training_fraud_rate = fraud_rate_for(int(training["is_fraud"].sum()), len(training) - int(training["is_fraud"].sum()))
-            detector = FraudDetector()
+            detector_target_fpr = self._target_fpr_for_round(round_id)
+            detector = FraudDetector(target_fpr_ceiling=detector_target_fpr)
             detector.fit(training, calibration_data=threshold_calibration)
             validation_data = pd.concat([holdout.assign(is_fraud=0), unseen_attacks], ignore_index=True)
             validation_data["attack_family"] = validation_data.get("attack_family", specification.attack_family)
@@ -290,6 +300,7 @@ class ClosedLoop:
             evaluation = detector.evaluate(validation_data)
             evaluation["evaluation_protocol"] = "unseen_attack_rows_and_legitimate_holdout"
             evaluation["decision_threshold"] = detector.threshold
+            evaluation["target_false_positive_rate"] = detector_target_fpr
             blue_team_evaluation = detector.evaluate(blue_team_benchmark)
             blue_team_evaluation["evaluation_protocol"] = "fixed_unseen_seven_family_benchmark"
             evaluation["blue_team_benchmark"] = blue_team_evaluation

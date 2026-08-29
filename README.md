@@ -32,7 +32,7 @@ The closed loop is:
 
 `Reviewed RAG + Attack Memory -> Agent1 -> Agent2 -> CTGAN -> Detector -> Agent3 -> Attack Memory -> Agent1`
 
-All transactions are generated synthetically. Each round uses disjoint detector-training and current-family evaluation attacks. Longitudinal blue-team metrics use one fixed unseen benchmark containing all seven approved fraud families, reused unchanged across rounds. The detector operating threshold is calibrated on a separate legitimate-only holdout, not replay data or benchmark labels.
+All transactions are generated synthetically. Each round uses disjoint detector-training and current-family evaluation attacks. Longitudinal blue-team metrics use one fixed unseen benchmark containing all seven approved fraud families, reused unchanged across rounds. The detector operating threshold is calibrated on a separate legitimate-only holdout, not replay data or benchmark labels. Tied calibration scores are handled strictly so the requested ceiling is not exceeded. The predeclared operating target hardens linearly from 2.0% to 1.9% across 50 rounds; this schedule never reads benchmark results.
 
 The detector retrains continually with representative replay and prior misses. The target synthetic fraud rate is 2%, within the required 1-3% range.
 
