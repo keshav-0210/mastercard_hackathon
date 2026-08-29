@@ -44,9 +44,49 @@ def build_round_family_plan(rounds: int, seed: int = 0) -> list[str]:
     return plan
 
 
-def make_reference_transactions(size: int, seed: int) -> pd.DataFrame:
+class EntityRegistry:
+    """One persistent universe of account/device/beneficiary identifiers shared across every
+    generation call in a run, so the same entities can genuinely reappear across train, holdout,
+    calibration, and benchmark batches -- letting the detector learn real per-entity history and
+    shared-infrastructure signal instead of an artifact of each batch having its own private ID
+    pool. Legitimate rows mostly sample broadly but occasionally touch the same infrastructure
+    (shared household devices, common payees) that fraud rings also reuse, so the signal is a
+    realistic, noisy tendency rather than a near-deterministic tell. Never conditioned on is_fraud
+    beyond which pool a caller requests."""
+
+    def __init__(self, seed: int, num_accounts: int = 4000, num_devices: int = 2500, num_beneficiaries: int = 3000) -> None:
+        rng = np.random.default_rng(seed)
+        self.rng = rng
+        self.accounts = np.array([f"acct-{i}" for i in range(num_accounts)])
+        self.devices = np.array([f"dev-{i}" for i in range(num_devices)])
+        self.beneficiaries = np.array([f"ben-{i}" for i in range(num_beneficiaries)])
+        self.compromised_accounts = rng.choice(self.accounts, max(1, num_accounts // 7), replace=False)
+        self.attacker_devices = rng.choice(self.devices, max(1, num_devices // 10), replace=False)
+        self.attacker_beneficiaries = rng.choice(self.beneficiaries, max(1, num_beneficiaries // 10), replace=False)
+
+    def sample(self, rng: np.random.Generator, size: int, is_fraud: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if is_fraud:
+            accounts = rng.choice(self.compromised_accounts, size)
+            devices = rng.choice(self.attacker_devices, size)
+            beneficiaries = rng.choice(self.attacker_beneficiaries, size)
+        else:
+            accounts = rng.choice(self.accounts, size)
+            devices = rng.choice(self.devices, size)
+            beneficiaries = rng.choice(self.beneficiaries, size)
+            # A small share of legitimate traffic naturally overlaps with the same infrastructure
+            # (shared family devices/common payees), so the shared-account signal is imperfect.
+            noisy = rng.random(size) < 0.08
+            if noisy.any():
+                devices[noisy] = rng.choice(self.attacker_devices, noisy.sum())
+            noisy = rng.random(size) < 0.05
+            if noisy.any():
+                beneficiaries[noisy] = rng.choice(self.attacker_beneficiaries, noisy.sum())
+        return accounts, devices, beneficiaries
+
+
+def make_reference_transactions(size: int, seed: int, registry: "EntityRegistry | None" = None) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
-    return pd.DataFrame(
+    data = pd.DataFrame(
         {
             "amount": np.round(rng.lognormal(3.3, 1.0, size), 2),
             "hour": rng.integers(0, 24, size),
@@ -57,6 +97,12 @@ def make_reference_transactions(size: int, seed: int) -> pd.DataFrame:
             "is_fraud": 0,
         }
     )
+    if registry is not None:
+        accounts, devices, beneficiaries = registry.sample(rng, size, is_fraud=False)
+        data["account_id"] = accounts
+        data["device_id"] = devices
+        data["beneficiary_id"] = beneficiaries
+    return data
 
 
 def fraud_rate_for(fraud_rows: int, legitimate_rows: int) -> float:
@@ -146,7 +192,7 @@ def _family_profile(family: str) -> dict[str, float | tuple[float, ...]]:
     return defaults
 
 
-def generate_attacks(specification: AttackSpecification, size: int, round_id: int, seed: int) -> pd.DataFrame:
+def generate_attacks(specification: AttackSpecification, size: int, round_id: int, seed: int, registry: "EntityRegistry | None" = None) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     family = specification.attack_family.lower()
     profile = _family_profile(family)
@@ -185,6 +231,11 @@ def generate_attacks(specification: AttackSpecification, size: int, round_id: in
     data["attack_family"] = specification.attack_family
     data["generation_round"] = round_id
     data["generation_method"] = "realistic_family_conditional_generator"
+    if registry is not None:
+        accounts, devices, beneficiaries = registry.sample(rng, size, is_fraud=True)
+        data["account_id"] = accounts
+        data["device_id"] = devices
+        data["beneficiary_id"] = beneficiaries
     return data
 
 

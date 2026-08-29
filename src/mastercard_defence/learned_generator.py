@@ -6,7 +6,7 @@ import torch
 from ctgan import CTGAN
 
 from .contracts import AttackSpecification
-from .synthetic import ALLOWED_FAMILIES, CHANNELS, generate_attacks
+from .synthetic import ALLOWED_FAMILIES, CHANNELS, EntityRegistry, generate_attacks
 
 MODEL_COLUMNS = ["amount", "hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "attack_family"]
 DISCRETE_COLUMNS = ["hour", "device_change", "beneficiary_change", "velocity_24h", "channel", "attack_family"]
@@ -40,7 +40,7 @@ class ConditionalCTGANGenerator:
         self.model.set_random_state(self.seed)
         self.model.fit(training_data[MODEL_COLUMNS], discrete_columns=DISCRETE_COLUMNS)
 
-    def generate(self, specification: AttackSpecification, size: int, round_id: int, seed: int, max_attempts: int = 32, allow_partial: bool = False) -> pd.DataFrame:
+    def generate(self, specification: AttackSpecification, size: int, round_id: int, seed: int, max_attempts: int = 32, allow_partial: bool = False, registry: "EntityRegistry | None" = None) -> pd.DataFrame:
         if self.model is None:
             raise RuntimeError("ConditionalCTGANGenerator must be fitted before generation")
         if self.cuda:
@@ -88,6 +88,12 @@ class ConditionalCTGANGenerator:
         data["attack_family"] = specification.attack_family
         data["generation_round"] = round_id
         data["generation_method"] = "conditional_ctgan"
+        if registry is not None:
+            rng = np.random.default_rng(seed)
+            accounts, devices, beneficiaries = registry.sample(rng, len(data), is_fraud=True)
+            data["account_id"] = accounts
+            data["device_id"] = devices
+            data["beneficiary_id"] = beneficiaries
         return data
 
 

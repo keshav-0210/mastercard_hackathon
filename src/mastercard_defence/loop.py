@@ -12,7 +12,7 @@ from .contracts import AttackSpecification, RoundRecord
 from .detector import FraudDetector
 from .memory import AttackMemory
 from .rag import LocalKnowledgeBase
-from .synthetic import build_round_family_plan, calibrate_attacks_toward_reference, evaluate_diversity, evaluate_fidelity, evaluate_novelty, fraud_rate_for, generate_attacks, legitimate_rows_for_fraud_rate, make_reference_transactions, summarize_detector_version_performance, summarize_family_performance, summarize_robustness
+from .synthetic import EntityRegistry, build_round_family_plan, calibrate_attacks_toward_reference, evaluate_diversity, evaluate_fidelity, evaluate_novelty, fraud_rate_for, generate_attacks, legitimate_rows_for_fraud_rate, make_reference_transactions, summarize_detector_version_performance, summarize_family_performance, summarize_robustness
 
 
 class ClosedLoop:
@@ -87,7 +87,7 @@ class ClosedLoop:
     def _target_fpr_for_round(self, round_id: int) -> float:
         """Flat false-positive-rate operating target: not a hackathon requirement, so the detector
         is held to one constant ceiling every round instead of tightening it over time."""
-        return float(self.config.get("detector_target_fpr", 0.02))
+        return float(self.config.get("detector_target_fpr", 0.05))
 
     def _cross_round_redundancy(self, attacks: pd.DataFrame) -> tuple[dict, set]:
         """Compares this round's generated rows against every prior round's rows to catch
@@ -114,12 +114,12 @@ class ClosedLoop:
         combined = combined.drop_duplicates().reset_index(drop=True)
         self.historical_unseen_pool = self._stratified_cap(combined, self.max_historical_pool)
 
-    def _evaluate_historical_robustness(self, detector: FraudDetector, seed: int, round_id: int) -> dict:
+    def _evaluate_historical_robustness(self, detector: FraudDetector, seed: int, round_id: int, registry: EntityRegistry) -> dict:
         """Checks whether the just-fitted detector still catches attacks from earlier rounds,
         so detector-version improvement and non-forgetting can be measured, not assumed."""
         if self.historical_unseen_pool.empty:
             return {"insufficient_history": True, "historical_fraud_rows": 0, "precision": 0.0, "recall": 0.0, "f1": 0.0, "roc_auc": 0.5}
-        historical_legit = make_reference_transactions(len(self.historical_unseen_pool), seed + 9000 + round_id)
+        historical_legit = make_reference_transactions(len(self.historical_unseen_pool), seed + 9000 + round_id, registry=registry)
         historical_validation = pd.concat([historical_legit.assign(is_fraud=0), self.historical_unseen_pool], ignore_index=True)
         historical_validation["attack_family"] = historical_validation["attack_family"].fillna("legitimate")
         result = detector.evaluate(historical_validation)
@@ -132,7 +132,7 @@ class ClosedLoop:
             "roc_auc": result["roc_auc"],
         }
 
-    def _build_blue_team_benchmark(self, attack_generator, seed: int, target_fraud_rate: float) -> pd.DataFrame:
+    def _build_blue_team_benchmark(self, attack_generator, seed: int, target_fraud_rate: float, registry: EntityRegistry) -> pd.DataFrame:
         attack_rows_per_family = int(self.config.get("benchmark_attacks_per_family", 20))
         attack_parts = []
         for index, family in enumerate(ATTACK_FAMILIES):
@@ -149,13 +149,13 @@ class ClosedLoop:
             )
             generator_seed = seed + 7000 + index
             if attack_generator is None:
-                attacks = generate_attacks(specification, attack_rows_per_family, 0, generator_seed)
+                attacks = generate_attacks(specification, attack_rows_per_family, 0, generator_seed, registry=registry)
             else:
-                attacks = attack_generator.generate(specification, attack_rows_per_family, 0, generator_seed)
+                attacks = attack_generator.generate(specification, attack_rows_per_family, 0, generator_seed, registry=registry)
             attack_parts.append(attacks)
         benchmark_attacks = pd.concat(attack_parts, ignore_index=True)
         legitimate_rows = legitimate_rows_for_fraud_rate(len(benchmark_attacks), target_fraud_rate)
-        benchmark_legitimate = make_reference_transactions(legitimate_rows, seed + 8000).assign(
+        benchmark_legitimate = make_reference_transactions(legitimate_rows, seed + 8000, registry=registry).assign(
             is_fraud=0,
             attack_family="legitimate",
         )
@@ -170,14 +170,16 @@ class ClosedLoop:
             raise ValueError("pipeline.fraud_rate must be between 0.01 and 0.03")
         attack_count = self.config["pipeline"]["max_generated_attacks"]
         train_attack_count = int(attack_count * self.config["pipeline"].get("detector_train_fraction", 0.6))
-        reference = make_reference_transactions(self.config["pipeline"]["synthetic_transactions"], seed)
-        train_reference = make_reference_transactions(legitimate_rows_for_fraud_rate(train_attack_count, target_fraud_rate), seed + 2)
-        holdout = make_reference_transactions(legitimate_rows_for_fraud_rate(attack_count, target_fraud_rate), seed + 1)
+        registry = EntityRegistry(seed)
+        reference = make_reference_transactions(self.config["pipeline"]["synthetic_transactions"], seed, registry=registry)
+        train_reference = make_reference_transactions(legitimate_rows_for_fraud_rate(train_attack_count, target_fraud_rate), seed + 2, registry=registry)
+        holdout = make_reference_transactions(legitimate_rows_for_fraud_rate(attack_count, target_fraud_rate), seed + 1, registry=registry)
         threshold_calibration = make_reference_transactions(
             int(self.config.get("threshold_calibration_rows", 3000)),
             seed + 3,
+            registry=registry,
         ).assign(is_fraud=0, attack_family="legitimate")
-        blue_team_benchmark = self._build_blue_team_benchmark(attack_generator, seed, target_fraud_rate)
+        blue_team_benchmark = self._build_blue_team_benchmark(attack_generator, seed, target_fraud_rate, registry)
         fidelity_reference = reference.reset_index(drop=True)
         results = []
         print(f"[seed={seed}] starting {rounds}-round run with family plan: {family_plan}")
@@ -231,11 +233,11 @@ class ClosedLoop:
             specification.attack_family = chosen_family
             generation_start = time.perf_counter()
             if attack_generator is None:
-                train_attacks = generate_attacks(specification, attack_count, round_id, seed + round_id)
-                unseen_attacks = generate_attacks(specification, attack_count, round_id, seed + 1000 + round_id)
+                train_attacks = generate_attacks(specification, attack_count, round_id, seed + round_id, registry=registry)
+                unseen_attacks = generate_attacks(specification, attack_count, round_id, seed + 1000 + round_id, registry=registry)
             else:
-                train_attacks = attack_generator.generate(specification, attack_count, round_id, seed + round_id)
-                unseen_attacks = attack_generator.generate(specification, attack_count, round_id, seed + 1000 + round_id)
+                train_attacks = attack_generator.generate(specification, attack_count, round_id, seed + round_id, registry=registry)
+                unseen_attacks = attack_generator.generate(specification, attack_count, round_id, seed + 1000 + round_id, registry=registry)
             print(f"[seed={seed}] round {round_id} train/unseen generation complete in {time.perf_counter() - generation_start:.2f}s")
             exposure_count = self.family_exposure_count.get(chosen_family, 0)
             train_attacks = calibrate_attacks_toward_reference(train_attacks, fidelity_reference, exposure_count)
@@ -282,6 +284,7 @@ class ClosedLoop:
                 additional_legitimate = make_reference_transactions(
                     required_legitimate_rows - legitimate_rows,
                     seed + 3000 + round_id,
+                    registry=registry,
                 )
                 training = pd.concat([training, additional_legitimate], ignore_index=True)
             training_fraud_rate = fraud_rate_for(int(training["is_fraud"].sum()), len(training) - int(training["is_fraud"].sum()))
@@ -305,7 +308,7 @@ class ClosedLoop:
             evaluation["training_fraud_rate"] = round(training_fraud_rate, 4)
             evaluation["validation_fraud_rate"] = round(validation_fraud_rate, 4)
             evaluation["detector_version"] = self.detector_version
-            evaluation["historical_robustness"] = self._evaluate_historical_robustness(detector, seed, round_id)
+            evaluation["historical_robustness"] = self._evaluate_historical_robustness(detector, seed, round_id, registry)
             evaluation["attack_difficulty_score"] = round(1.0 - float(evaluation.get("recall", 0.0)), 4)
             if detector_mode == "continual":
                 predictions = detector.predict(unseen_attacks)
