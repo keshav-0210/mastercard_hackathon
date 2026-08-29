@@ -15,9 +15,12 @@ DISCRETE_COLUMNS = ["hour", "device_change", "beneficiary_change", "velocity_24h
 class ConditionalCTGANGenerator:
     """CTGAN wrapper that samples rows conditioned on the requested attack family."""
 
-    def __init__(self, seed: int = 0, epochs: int = 20) -> None:
+    def __init__(self, seed: int = 0, epochs: int = 20, cuda: bool | None = None) -> None:
         self.seed = seed
         self.epochs = epochs
+        self.cuda = torch.cuda.is_available() if cuda is None else cuda
+        if self.cuda and not torch.cuda.is_available():
+            raise RuntimeError("CTGAN CUDA was requested, but Torch CUDA is unavailable")
         self.model: CTGAN | None = None
 
     def fit(self, training_data: pd.DataFrame) -> None:
@@ -29,9 +32,9 @@ class ConditionalCTGANGenerator:
             epochs=self.epochs,
             pac=10,
             verbose=False,
-            cuda=torch.cuda.is_available(),
+            cuda=self.cuda,
         )
-        if torch.cuda.is_available():
+        if self.cuda:
             torch.cuda.set_device(0)
             self.model.set_device(torch.device("cuda:0"))
         self.model.set_random_state(self.seed)
@@ -40,7 +43,7 @@ class ConditionalCTGANGenerator:
     def generate(self, specification: AttackSpecification, size: int, round_id: int, seed: int, max_attempts: int = 32, allow_partial: bool = False) -> pd.DataFrame:
         if self.model is None:
             raise RuntimeError("ConditionalCTGANGenerator must be fitted before generation")
-        if torch.cuda.is_available():
+        if self.cuda:
             torch.cuda.set_device(0)
             self.model.set_device(torch.device("cuda:0"))
         self.model.set_random_state(seed)

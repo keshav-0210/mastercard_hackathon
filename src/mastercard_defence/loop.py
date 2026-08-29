@@ -386,7 +386,11 @@ class ClosedLoop:
 
             fit_start = time.perf_counter()
             print("[robustness] preparing CTGAN training corpus")
-            attack_generator = ConditionalCTGANGenerator(seed=self.config["seed"], epochs=self.config.get("generator_epochs", 20))
+            attack_generator = ConditionalCTGANGenerator(
+                seed=self.config["seed"],
+                epochs=self.config.get("generator_epochs", 20),
+                cuda=self.config.get("generator_cuda"),
+            )
             training_corpus = build_training_corpus(
                 self.config["seed"],
                 attack_size=self.config.get("generator_training_attack_size", 100),

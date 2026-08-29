@@ -24,7 +24,7 @@ The repository revision pulled by Kaggle must contain this notebook, `src/master
 - Enable internet access so the notebook can clone the repository and install packages.
 - No API key or runtime secret is required.
 
-The notebook refuses to fall back to CPU or `HeuristicAgents`. Paths and the repository URL can be overridden with `MASTERCARD_PROJECT_DIR`, `KAGGLE_INPUT_DIR`, `SUBMISSION_DIR`, and `MASTERCARD_REPOSITORY_URL`.
+The notebook refuses to fall back to CPU or `HeuristicAgents` for Qwen. CTGAN uses Torch CUDA only when the installed Torch wheel supports the attached GPU architecture; otherwise CTGAN trains on CPU and records that choice in the run configuration. Paths and the repository URL can be overridden with `MASTERCARD_PROJECT_DIR`, `KAGGLE_INPUT_DIR`, `SUBMISSION_DIR`, and `MASTERCARD_REPOSITORY_URL`.
 
 ## Experiment Protocol
 
